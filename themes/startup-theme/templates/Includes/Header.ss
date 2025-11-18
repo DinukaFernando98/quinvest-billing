@@ -2,12 +2,11 @@
     <div class="header-container">
         <div class="logo">
             <a href="/">
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="40" height="40" rx="8" fill="#047a4d"/>
-                    <path d="M20 10L30 18V28C30 29.1046 29.1046 30 28 30H12C10.8954 30 10 29.1046 10 28V18L20 10Z" fill="white"/>
-                    <path d="M20 15V25M15 20H25" stroke="#047a4d" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-                <span class="logo-text">QuInvest</span>
+                <img 
+                    src="$resourceURL('/_resources/themes/startup-theme/images/quinvest.svg')" 
+                    alt="QuInvest Logo" 
+                    width="200"
+                />
             </a>
         </div>
         

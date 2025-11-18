@@ -65,7 +65,7 @@ function checkStep1Completion() {
 
 function redirectToStep(step) {
     const currentUrl = window.location.href.split('?')[0];
-    const newUrl = `${currentUrl}?step=${step}`;
+    const newUrl = `${currentUrl}?step=${step}#form-start`;
     console.log('Redirecting to:', newUrl);
     window.location.href = newUrl;
 }

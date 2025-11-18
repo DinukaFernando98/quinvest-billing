@@ -96,7 +96,6 @@ namespace {
                     ->setAttribute('required', 'required'),
 
                 FileField::create('BillingFile', 'Upload Billing Form')
-                    ->setDescription('Allowed file types: pdf, jpg, jpeg, png, doc, docx')
                     ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx')
                     ->addExtraClass('form-input')
             );
@@ -319,7 +318,7 @@ namespace {
                     // Use FileField instead of UploadField for Ownership Proof
                     $fileField = FileField::create("OwnershipProof_{$party}", 'Ownership Proof')
                         ->setDescription(in_array($party, ['Seller', 'Landlord']) ?
-                            'Required - Allowed file types: pdf, jpg, jpeg, png, doc, docx' :
+                            'Required (excluding listed companies)' :
                             'Optional - Allowed file types: pdf, jpg, jpeg, png, doc, docx')
                         ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx');
 
@@ -438,8 +437,8 @@ namespace {
                     ])->setValue($amlRecord ? (string)$amlRecord->AMLCompleted : null),
 
                     FileField::create("AMLFile_{$index}", 'Upload AML PDF file')
-                        ->setDescription('Allowed file type: pdf')
-                        ->setAttribute('accept', '.pdf'),
+                        
+                        ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'),
                 ];
 
                 // Add AML file existing notice right after AML file field
@@ -460,8 +459,8 @@ namespace {
                     ])->setValue($amlRecord ? (string)$amlRecord->FormBSection2Checked : null),
 
                     FileField::create("FormQCID_{$index}", 'Upload Form QCI-D')
-                        ->setDescription('Allowed file type: pdf')
-                        ->setAttribute('accept', '.pdf'),
+                        
+                        ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'),
                 ]);
 
                 // Add Form QCI-D existing notice right after Form QCI-D field
@@ -487,8 +486,8 @@ namespace {
                     ])->setValue($amlRecord ? $amlRecord->UCPType : null),
 
                     FileField::create("UCPForms_{$index}", 'Upload UCP Forms')
-                        ->setDescription('Multiple files allowed - Allowed file type: pdf')
-                        ->setAttribute('accept', '.pdf')
+                        ->setDescription('Multiple files allowed')
+                        ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx')
                         ->setAttribute('multiple', 'multiple'),
                 ]);
 
@@ -518,8 +517,8 @@ namespace {
                     ])->setValue($amlRecord ? (string)$amlRecord->ECDDRequired : null),
 
                     FileField::create("ECDDForm_{$index}", 'Upload ECDD Form')
-                        ->setDescription('Allowed file type: pdf')
-                        ->setAttribute('accept', '.pdf'),
+                        
+                        ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'),
                 ]);
 
                 // Add ECDD Form existing notice right after ECDD Form field
@@ -561,8 +560,8 @@ namespace {
 
                 $wrapperContent = array_merge($wrapperContent, [
                     FileField::create("FormQCIB_{$index}", 'Upload Form QCI-B')
-                        ->setDescription('Allowed file type: pdf')
-                        ->setAttribute('accept', '.pdf'),
+                        
+                        ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'),
                 ]);
 
                 // Add Form QCI-B existing notice right after Form QCI-B field
@@ -615,8 +614,8 @@ namespace {
             if ($transactionType === 'Sale') {
                 $existingOptionToPurchase = $existingDocsByType['Option To Purchase / Sales Agreement'] ?? [];
                 $fields->push(FileField::create('OptionToPurchase', 'Option To Purchase / Sales Agreement')
-                    ->setDescription('Allowed file type: pdf')
-                    ->setAttribute('accept', '.pdf'));
+                    
+                    ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
                 // Show existing file info
                 if (!empty($existingOptionToPurchase)) {
@@ -639,8 +638,8 @@ namespace {
             } else {
                 $existingTenancyAgreement = $existingDocsByType['Tenancy Agreement / Letter Of Intent / Letter Of Offer'] ?? [];
                 $fields->push(FileField::create('TenancyAgreement', 'Tenancy Agreement / Letter Of Intent / Letter Of Offer')
-                    ->setDescription('Allowed file type: pdf')
-                    ->setAttribute('accept', '.pdf'));
+                    
+                    ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
                 // Show existing file info
                 if (!empty($existingTenancyAgreement)) {
@@ -670,8 +669,8 @@ namespace {
             ]));
 
             $fields->push(FileField::create('CEAAgreement', 'Upload CEA Agreement')
-                ->setDescription('Allowed file type: pdf')
-                ->setAttribute('accept', '.pdf'));
+                
+                ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
             if (!empty($existingCEAAgreement)) {
                 $fileNames = [];
@@ -699,8 +698,8 @@ namespace {
             ]));
 
             $fields->push(FileField::create('CobrokeAgreement', 'Upload Co-broke Agreement')
-                ->setDescription('Allowed file type: pdf')
-                ->setAttribute('accept', '.pdf'));
+                
+                ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
             if (!empty($existingCobrokeAgreement)) {
                 $fileNames = [];
@@ -728,8 +727,8 @@ namespace {
             ]));
 
             $fields->push(FileField::create('CommissionAgreement', 'Upload Commission Agreement')
-                ->setDescription('Allowed file type: pdf')
-                ->setAttribute('accept', '.pdf'));
+                
+                ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
             if (!empty($existingCommissionAgreement)) {
                 $fileNames = [];
@@ -758,8 +757,8 @@ namespace {
                 ]));
 
                 $fields->push(FileField::create('HDBApproval', 'Upload HDB Approval letter')
-                    ->setDescription('Allowed file type: pdf')
-                    ->setAttribute('accept', '.pdf'));
+                    
+                    ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
                 if (!empty($existingHDBApproval)) {
                     $fileNames = [];
@@ -790,8 +789,8 @@ namespace {
             $fields->push(TextField::create('OtherDocumentsDescription', 'Please specify'));
 
             $fields->push(FileField::create('OtherDocuments', 'Upload other documents (Max 3 files)')
-                ->setDescription('Multiple files allowed - Allowed file type: pdf')
-                ->setAttribute('accept', '.pdf')
+                ->setDescription('Multiple files allowed')
+                ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx')
                 ->setAttribute('multiple', 'multiple'));
 
             if (!empty($existingOtherDocuments)) {
@@ -1043,7 +1042,7 @@ namespace {
             $nextStep = $currentStep + 1;
             $this->getRequest()->getSession()->set('FormStep', $nextStep);
 
-            return $this->redirect($this->Link() . '?step=' . $nextStep);
+            return $this->redirect($this->Link() . '?step=' . $nextStep . '#form-start');
         }
 
         public function previousStep($data, $form)
@@ -1053,7 +1052,7 @@ namespace {
 
             $this->getRequest()->getSession()->set('FormStep', $previousStep);
 
-            return $this->redirect($this->Link() . '?step=' . $previousStep);
+            return $this->redirect($this->Link() . '?step=' . $previousStep. '#form-start');
         }
 
         public function submitForm($data, $form)
@@ -1475,7 +1474,7 @@ namespace {
                 'wendy.low@quinvest-chambers.com.sg'
             ];
 
-            $subject = "New Form Submission - {$submission->SerialNumber}";
+            $subject = "New Form Submission - {$submission->SalespersonName}";
             $body = "A new form has been submitted by {$submission->SalespersonName}.\n\n";
             $body .= "Serial Number: {$submission->SerialNumber}\n";
             $body .= "RES Number: {$submission->RESNumber}\n";

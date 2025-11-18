@@ -1,15 +1,95 @@
-<div class="form-submission-page page-container">
+<!-- Animated Hero Banner -->
+<div class="hero-banner">
+    <div class="hero-background">
+        <!-- 3D Floating Objects -->
+        <div class="floating-objects">
+            <div class="floating-cube cube-1"></div>
+            <div class="floating-cube cube-2"></div>
+            <div class="floating-cube cube-3"></div>
+            <div class="floating-sphere sphere-1"></div>
+            <div class="floating-sphere sphere-2"></div>
+            <div class="floating-pyramid pyramid-1"></div>
+            <div class="floating-cylinder cylinder-1"></div>
+        </div>
+        
+        <!-- Animated Background Elements -->
+        <div class="bg-grid"></div>
+        <div class="bg-particles"></div>
+    </div>
     
+    <div class="hero-content">
+        <div class="hero-text">
+            <h1 class="hero-title">
+                <span class="title-word title-word-1">Form</span>
+                <span class="title-word title-word-2">Submissions</span>
+            </h1>
+            <p class="hero-subtitle">Complete your transaction documentation with our intuitive multistep form</p>
+            
+            <div class="hero-features">
+                <div class="feature-item">
+                    <div class="feature-icon">✓</div>
+                    <span>Step-by-step guidance</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">✓</div>
+                    <span>Secure file uploads</span>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">✓</div>
+                    <span>Real-time progress tracking</span>
+                </div>
+            </div>
+            
+            <div class="hero-cta">
+                <a href="#form-start" class="cta-button primary">
+                    <span>Start Form</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </a>
+                <a href="/guidelines" class="cta-button secondary">
+                    <span>View Guidelines</span>
+                </a>
+            </div>
+        </div>
+        
+        <div class="hero-visual">
+            <div class="floating-form-preview">
+                <div class="form-card card-1">
+                    <div class="card-header"></div>
+                    <div class="card-field"></div>
+                    <div class="card-field"></div>
+                    <div class="card-button"></div>
+                </div>
+                <div class="form-card card-2">
+                    <div class="card-header"></div>
+                    <div class="card-field"></div>
+                    <div class="card-button"></div>
+                </div>
+                <div class="form-card card-3">
+                    <div class="card-progress"></div>
+                    <div class="card-checkmark"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="scroll-indicator">
+        <div class="scroll-arrow" id="form-start"></div>
+    </div>
+</div>
+
+<div class="form-submission-page page-container">    
     <!-- Background overlay for better readability -->
     <div style="position: relative; z-index: 2;">
-        <div class="page-hero">
-            <div class="hero-content">
-                <h1 class="page-title">Form Submission</h1>
+        <div class="page-hero__form">
+            <div class="hero-content__form">
+                <h1 class="page-title">Form Submissions</h1>
                 <p class="page-subtitle">Complete the multistep form below</p>
             </div>
         </div>
         
-        <% if $getRequest.getVar('success') %>
+    <% if $getRequest.getVar('success') %>
     <div class="modal active" id="successModal">
         <div class="modal-content success">
             <div class="modal-icon">
@@ -35,8 +115,8 @@
             </div>
             <p class="modal-note">Please use this serial number when submitting your billing form.</p>
             <div class="modal-actions">
-                <a href="$Link" class="btn btn-primary">Submit Another Form</a>
-                <a href="/billing-form" class="btn btn-primary">Submit Billing Form</a>
+                <a href="$Link" class="btn btn-primary justify-center">Submit again</a>
+                <a href="/billing-form" class="btn btn-primary">Submit billing form</a>
             </div>
         </div>
     </div>
