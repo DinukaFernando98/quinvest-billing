@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# While this module has no tests, ci.yml is still included so that:
+# - it's tested that silverstripe/installer installs correctly
+# - tag-patch-release.yml is called
+
+jobs:
+  ci:
+    name: CI
+    # Do not run if this is a pull-request from same repo i.e. not a fork repo
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    uses: silverstripe/gha-ci/.github/workflows/ci.yml@v2
+    with:
+      dynamic_matrix: false
+      extra_jobs: |
+        - php: '8.3'
+          composer_args: '--prefer-lowest'
+        - php: '8.4'

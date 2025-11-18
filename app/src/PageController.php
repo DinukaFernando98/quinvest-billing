@@ -61,8 +61,8 @@ namespace {
             // gets the first theme in the list
             $theme = reset($theme);
 
-            Requirements::css("themes/" . $theme . "/css/main.css");
-            Requirements::javascript("themes/" . $theme . "/js/main.js");
+            Requirements::css("public/resources/themes/quinvest/css/main.css");
+            Requirements::javascript("public/resources/themes/quinvest/js/main.js");
 
             // Handle step parameter from URL
             $step = $this->getRequest()->getVar('step');
