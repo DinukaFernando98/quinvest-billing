@@ -15,6 +15,46 @@ document.addEventListener('DOMContentLoaded', () => {
     addProgressStepStyles();
 });
 
+// Enhanced smooth scroll for mouse wheel
+(function() {
+    let isScrolling = false;
+    let scrollTarget = 0;
+    let initialized = false;
+    
+    function smoothScroll() {
+        const currentScroll = window.pageYOffset;
+        const distance = scrollTarget - currentScroll;
+        
+        if (Math.abs(distance) > 1) {
+            window.scrollTo(0, currentScroll + distance * 0.1);
+            requestAnimationFrame(smoothScroll);
+        } else {
+            isScrolling = false;
+        }
+    }
+    
+    // Initialize scroll target after page load and anchor jump
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            scrollTarget = window.pageYOffset;
+            initialized = true;
+        }, 100);
+    });
+    
+    window.addEventListener('wheel', function(e) {
+        if (!initialized) return;
+        
+        e.preventDefault();
+        scrollTarget += e.deltaY;
+        scrollTarget = Math.max(0, Math.min(scrollTarget, document.documentElement.scrollHeight - window.innerHeight));
+        
+        if (!isScrolling) {
+            isScrolling = true;
+            requestAnimationFrame(smoothScroll);
+        }
+    }, { passive: false });
+})();
+
 // ===== STEP NAVIGATION =====
 function navigateToStep(targetStep) {
     const currentStep = parseInt(document.querySelector('.form-step')?.getAttribute('data-step') || 1);

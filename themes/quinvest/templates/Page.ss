@@ -10,6 +10,7 @@
     <% include Favicons %>
 
     <title><% if $MetaTitle %>$MetaTitle<% else %>$Title<% end_if %> | $SiteConfig.Title</title>
+
 </head>
 <body>
     <% include Header %>
