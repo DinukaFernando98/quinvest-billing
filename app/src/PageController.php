@@ -32,6 +32,7 @@ namespace {
     use App\Model\RequiredForm;
     use App\Model\ECDDForm;
     use App\Model\UCPForm;
+    use SilverStripe\Control\Email\Email;
 
     /**
      * @template T of Page
@@ -117,108 +118,57 @@ namespace {
             return $form;
         }
 
-        // public function submitBillingForm($data, $form)
-        // {
-        //     $serial = $data['SerialNumber'] ?? null;
-
-        //     if (!$serial) {
-        //         $form->sessionMessage('Please provide the serial number.', 'bad');
-        //         return $this->redirectBack();
-        //     }
-
-        //     // Check if FormSubmission exists
-        //     $submission = FormSubmission::get()->filter('SerialNumber', $serial)->first();
-        //     if (!$submission) {
-        //         $form->sessionMessage("No matching form submission found for Serial Number: {$serial}", 'bad');
-        //         return $this->redirectBack();
-        //     }
-
-        //     // Create BillingFormSubmission
-        //     $billing = BillingFormSubmission::create();
-        //     $billing->SerialNumber = $serial;
-        //     $billing->FormSubmissionID = $submission->ID;
-        //     $billing->UploadedByID = Security::getCurrentUser()->ID ?? 0;
-
-        //     // Handle file upload with FileField
-        //     if (isset($data['BillingFile']) && !empty($data['BillingFile']['tmp_name'])) {
-        //         $upload = Upload::create();
-
-        //         try {
-        //             $file = File::create();
-        //             $upload->loadIntoFile($data['BillingFile'], $file, 'billing-forms/');
-
-        //             if ($file && $file->exists()) {
-        //                 $file->publishSingle();
-        //                 $billing->BillingFileID = $file->ID;
-        //             } else {
-        //                 throw new \Exception('File upload failed');
-        //             }
-        //         } catch (\Exception $e) {
-        //             $form->sessionMessage('File upload failed: ' . $e->getMessage(), 'bad');
-        //             return $this->redirectBack();
-        //         }
-        //     } else {
-        //         $form->sessionMessage('Please upload a billing file.', 'bad');
-        //         return $this->redirectBack();
-        //     }
-
-        //     $billing->write();
-
-        //     $form->sessionMessage('Billing form submitted successfully!', 'good');
-        //     return $this->redirectBack();
-        // }
-
         public function submitBillingForm($data, $form)
-{
-    $serial = $data['SerialNumber'] ?? null;
+        {
+            $serial = $data['SerialNumber'] ?? null;
 
-    if (!$serial) {
-        $form->sessionMessage('Please provide the serial number.', 'bad');
-        return $this->redirectBack();
-    }
+            if (!$serial) {
+                $form->sessionMessage('Please provide the serial number.', 'bad');
+                return $this->redirectBack();
+            }
 
-    // Check if FormSubmission exists
-    $submission = FormSubmission::get()->filter('SerialNumber', $serial)->first();
-    if (!$submission) {
-        $form->sessionMessage("No matching form submission found for Serial Number: {$serial}", 'bad');
-        return $this->redirectBack();
-    }
+            // Check if FormSubmission exists
+            $submission = FormSubmission::get()->filter('SerialNumber', $serial)->first();
+            if (!$submission) {
+                $form->sessionMessage("No matching form submission found for Serial Number: {$serial}", 'bad');
+                return $this->redirectBack();
+            }
 
-    // Check if file was uploaded
-    if (!isset($_FILES['BillingFile']) || empty($_FILES['BillingFile']['tmp_name'])) {
-        $form->sessionMessage('Please upload a billing file.', 'bad');
-        return $this->redirectBack();
-    }
+            // Check if file was uploaded
+            if (!isset($_FILES['BillingFile']) || empty($_FILES['BillingFile']['tmp_name'])) {
+                $form->sessionMessage('Please upload a billing file.', 'bad');
+                return $this->redirectBack();
+            }
 
-    // Create BillingFormSubmission
-    $billing = BillingFormSubmission::create();
-    $billing->SerialNumber = $serial;
-    $billing->FormSubmissionID = $submission->ID;
-    $billing->UploadedByID = Security::getCurrentUser()->ID ?? 0;
+            // Create BillingFormSubmission
+            $billing = BillingFormSubmission::create();
+            $billing->SerialNumber = $serial;
+            $billing->FormSubmissionID = $submission->ID;
+            $billing->UploadedByID = Security::getCurrentUser()->ID ?? 0;
 
-    // Handle file upload with FileField
-    $upload = Upload::create();
+            // Handle file upload with FileField
+            $upload = Upload::create();
 
-    try {
-        $file = File::create();
-        $upload->loadIntoFile($_FILES['BillingFile'], $file, 'billing-forms/');
+            try {
+                $file = File::create();
+                $upload->loadIntoFile($_FILES['BillingFile'], $file, 'billing-forms/');
 
-        if ($file && $file->exists()) {
-            $file->publishSingle();
-            $billing->BillingFileID = $file->ID;
-        } else {
-            throw new \Exception('File upload failed');
+                if ($file && $file->exists()) {
+                    $file->publishSingle();
+                    $billing->BillingFileID = $file->ID;
+                } else {
+                    throw new \Exception('File upload failed');
+                }
+            } catch (\Exception $e) {
+                $form->sessionMessage('File upload failed: ' . $e->getMessage(), 'bad');
+                return $this->redirectBack();
+            }
+
+            $billing->write();
+
+            $form->sessionMessage('Billing form submitted successfully!', 'good');
+            return $this->redirectBack();
         }
-    } catch (\Exception $e) {
-        $form->sessionMessage('File upload failed: ' . $e->getMessage(), 'bad');
-        return $this->redirectBack();
-    }
-
-    $billing->write();
-
-    $form->sessionMessage('Billing form submitted successfully!', 'good');
-    return $this->redirectBack();
-}
 
         public function MultiStepForm()
         {
@@ -885,84 +835,6 @@ namespace {
             return $fields;
         }
 
-        // private function buildStep4Fields($submission)
-        // {
-        //     $fields = FieldList::create();
-        //     $fields->push(HiddenField::create('CurrentStep', '', 4));
-        //     $fields->push(HiddenField::create('SubmissionID', '', $submission->ID));
-
-        //     $representing = $submission->getRepresentingArray();
-
-        //     foreach ($representing as $index => $party) {
-        //         $amlRecord = $submission->AMLRecords()->filter(['PartyType' => $party])->first();
-
-        //         $wrapper = CompositeField::create([
-        //             LiteralField::create("AMLHeader{$index}", 
-        //                 "<h3 class='aml-section-title'>{$party} - AML Search & Forms</h3>"),
-
-        //             OptionsetField::create("AMLCompleted_{$index}", 'Have you conducted an AML search?', [
-        //                 '1' => 'Yes',
-        //                 '0' => 'No'
-        //             ])->setValue($amlRecord ? (string)$amlRecord->AMLCompleted : null),
-
-        //             FileField::create("AMLFile_{$index}", 'Upload AML PDF file')
-        //                 ->setDescription('Allowed file type: pdf')
-        //                 ->setAttribute('accept', '.pdf'),
-
-        //             FileField::create("RequiredForms_{$index}", 'Upload necessary forms')
-        //                 ->setDescription('Multiple files allowed - Allowed file type: pdf')
-        //                 ->setAttribute('accept', '.pdf')
-        //                 ->setAttribute('multiple', 'multiple'),
-
-        //             OptionsetField::create("FormBSection2_{$index}", 'Was any component under section 2 of Form B checked "Yes"?', [
-        //                 '1' => 'Yes',
-        //                 '0' => 'No'
-        //             ])->setValue($amlRecord ? (string)$amlRecord->FormBSection2Checked : null),
-
-        //             FileField::create("FormQCID_{$index}", 'Upload Form QCI-D')
-        //                 ->setDescription('Allowed file type: pdf')
-        //                 ->setAttribute('accept', '.pdf'),
-
-        //             OptionsetField::create("OtherPartyRepresented_{$index}", 'Is the other party Represented?', [
-        //                 '1' => 'Yes',
-        //                 '0' => 'No'
-        //             ])->setValue($amlRecord ? (string)$amlRecord->OtherPartyRepresented : null),
-
-        //             OptionsetField::create("UCPType_{$index}", 'Is the other party (UCP) an:', [
-        //                 'Individual' => 'Individual',
-        //                 'Entity' => 'Entity'
-        //             ])->setValue($amlRecord ? $amlRecord->UCPType : null),
-
-        //             FileField::create("UCPForms_{$index}", 'Upload UCP Forms')
-        //                 ->setDescription('Multiple files allowed - Allowed file type: pdf')
-        //                 ->setAttribute('accept', '.pdf')
-        //                 ->setAttribute('multiple', 'multiple'),
-
-        //             OptionsetField::create("ECDDRequired_{$index}", 'After checking the CDD and AML forms, is ECDD warranted?', [
-        //                 '1' => 'Yes',
-        //                 '0' => 'No'
-        //             ])->setValue($amlRecord ? (string)$amlRecord->ECDDRequired : null),
-
-        //             FileField::create("ECDDForms_{$index}", 'Upload ECDD form and Form QCI-B')
-        //                 ->setDescription('Multiple files allowed - Allowed file type: pdf')
-        //                 ->setAttribute('accept', '.pdf')
-        //                 ->setAttribute('multiple', 'multiple'),
-
-        //             OptionsetField::create("EAApproval_{$index}", "Has EA's approval been obtained?", [
-        //                 '1' => 'Yes',
-        //                 '0' => 'No'
-        //             ])->setValue($amlRecord ? (string)$amlRecord->EAApprovalObtained : null),
-
-        //             HiddenField::create("AMLPartyType_{$index}", '', $party)
-        //         ]);
-
-        //         $wrapper->addExtraClass('aml-section');
-        //         $fields->push($wrapper);
-        //     }
-
-        //     return $fields;
-        // }
-
         private function getStep4Required($submission)
         {
             $required = [];
@@ -974,77 +846,6 @@ namespace {
 
             return $required;
         }
-
-        // private function buildStep5Fields($submission)
-        // {
-        //     $fields = FieldList::create();
-        //     $fields->push(HiddenField::create('CurrentStep', '', 5));
-        //     $fields->push(HiddenField::create('SubmissionID', '', $submission->ID));
-
-        //     $transactionType = $submission->TransactionType;
-
-        //     if ($transactionType === 'Sale') {
-        //         $fields->push(FileField::create('OptionToPurchase', 'Option To Purchase / Sales Agreement')
-        //             ->setDescription('Allowed file type: pdf')
-        //             ->setAttribute('accept', '.pdf'));
-        //     } else {
-        //         $fields->push(FileField::create('TenancyAgreement', 'Tenancy Agreement / Letter Of Intent / Letter Of Offer')
-        //             ->setDescription('Allowed file type: pdf')
-        //             ->setAttribute('accept', '.pdf'));
-        //     }
-
-        //     $fields->push(OptionsetField::create('HasCEAAgreement', 'Is there a CEA Agreement?', [
-        //         '1' => 'Yes',
-        //         '0' => 'No'
-        //     ]));
-
-        //     $fields->push(FileField::create('CEAAgreement', 'Upload CEA Agreement')
-        //         ->setDescription('Allowed file type: pdf')
-        //         ->setAttribute('accept', '.pdf'));
-
-        //     $fields->push(OptionsetField::create('HasCobrokeAgreement', 'Is there a Co-broke Agreement?', [
-        //         '1' => 'Yes',
-        //         '0' => 'No'
-        //     ]));
-
-        //     $fields->push(FileField::create('CobrokeAgreement', 'Upload Co-broke Agreement')
-        //         ->setDescription('Allowed file type: pdf')
-        //         ->setAttribute('accept', '.pdf'));
-
-        //     $fields->push(OptionsetField::create('HasCommissionAgreement', 'Is there a Commission Agreement?', [
-        //         '1' => 'Yes',
-        //         '0' => 'No'
-        //     ]));
-
-        //     $fields->push(FileField::create('CommissionAgreement', 'Upload Commission Agreement')
-        //         ->setDescription('Allowed file type: pdf')
-        //         ->setAttribute('accept', '.pdf'));
-
-        //     if ($transactionType === 'Lease') {
-        //         $fields->push(OptionsetField::create('HasHDBApproval', 'Is there HDB Approval letter for subletting?', [
-        //             '1' => 'Yes',
-        //             '0' => 'No'
-        //         ]));
-
-        //         $fields->push(FileField::create('HDBApproval', 'Upload HDB Approval letter')
-        //             ->setDescription('Allowed file type: pdf')
-        //             ->setAttribute('accept', '.pdf'));
-        //     }
-
-        //     $fields->push(OptionsetField::create('HasOtherDocuments', 'Are there any other documents?', [
-        //         '1' => 'Yes',
-        //         '0' => 'No'
-        //     ]));
-
-        //     $fields->push(TextField::create('OtherDocumentsDescription', 'Please specify'));
-
-        //     $fields->push(FileField::create('OtherDocuments', 'Upload other documents (Max 3 files)')
-        //         ->setDescription('Multiple files allowed - Allowed file type: pdf')
-        //         ->setAttribute('accept', '.pdf')
-        //         ->setAttribute('multiple', 'multiple'));
-
-        //     return $fields;
-        // }
 
         private function getStep5Required($submission)
         {
@@ -1066,79 +867,146 @@ namespace {
         }
 
         private function buildStep6Fields($submission)
-        {
-            $fields = FieldList::create();
-            $fields->push(HiddenField::create('CurrentStep', '', 6));
-            $fields->push(HiddenField::create('SubmissionID', '', $submission->ID));
+{
+    $fields = FieldList::create();
+    $fields->push(HiddenField::create('CurrentStep', '', 6));
+    $fields->push(HiddenField::create('SubmissionID', '', $submission->ID));
 
-            $reviewHTML = '<div class="review-content">';
+    $reviewHTML = '<div class="review-content">';
 
-            // Step 1 Review
-            $reviewHTML .= '<div class="review-section">';
-            $reviewHTML .= '<h3 class="review-title">Login Information</h3>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Salesperson Name:</span>';
-            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->SalespersonName) . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">RES Number:</span>';
-            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->RESNumber) . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '</div>';
+    // Step 1 Review
+    $reviewHTML .= '<div class="review-section">';
+    $reviewHTML .= '<h3 class="review-title">Login Information</h3>';
+    $reviewHTML .= '<div class="review-item">';
+    $reviewHTML .= '<span class="review-label">Salesperson Name:</span>';
+    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->SalespersonName) . '</span>';
+    $reviewHTML .= '</div>';
+    $reviewHTML .= '<div class="review-item">';
+    $reviewHTML .= '<span class="review-label">RES Number:</span>';
+    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->RESNumber) . '</span>';
+    $reviewHTML .= '</div>';
+    $reviewHTML .= '</div>';
 
-            // Step 2 Review
-            $reviewHTML .= '<div class="review-section">';
-            $reviewHTML .= '<h3 class="review-title">Property Details</h3>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Property Address:</span>';
-            $reviewHTML .= '<span class="review-value">' . nl2br(htmlspecialchars($submission->PropertyAddress)) . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Transaction Type:</span>';
-            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->TransactionType) . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Representing:</span>';
-            $reviewHTML .= '<span class="review-value">' . implode(', ', $submission->getRepresentingArray()) . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '</div>';
+    // Step 2 Review
+    $reviewHTML .= '<div class="review-section">';
+    $reviewHTML .= '<h3 class="review-title">Property Details</h3>';
+    $reviewHTML .= '<div class="review-item">';
+    $reviewHTML .= '<span class="review-label">Property Address:</span>';
+    $reviewHTML .= '<span class="review-value">' . nl2br(htmlspecialchars($submission->PropertyAddress)) . '</span>';
+    $reviewHTML .= '</div>';
+    $reviewHTML .= '<div class="review-item">';
+    $reviewHTML .= '<span class="review-label">Transaction Type:</span>';
+    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->TransactionType) . '</span>';
+    $reviewHTML .= '</div>';
+    $reviewHTML .= '<div class="review-item">';
+    $reviewHTML .= '<span class="review-label">Representing:</span>';
+    $reviewHTML .= '<span class="review-value">' . implode(', ', $submission->getRepresentingArray()) . '</span>';
+    $reviewHTML .= '</div>';
+    $reviewHTML .= '</div>';
 
-            // Files Review
-            $clientInfoCount = $submission->ClientInfo()->count();
-            $amlCount = $submission->AMLRecords()->count();
-            $docCount = $submission->Documents()->count();
-
-            $reviewHTML .= '<div class="review-section">';
-            $reviewHTML .= '<h3 class="review-title">Summary</h3>';
+    // Detailed Client Information Records
+    $clientInfoRecords = $submission->ClientInfo();
+    $reviewHTML .= '<div class="review-section">';
+    $reviewHTML .= '<h3 class="review-title">Client Information Records</h3>';
+    
+    if ($clientInfoRecords->count() > 0) {
+        foreach ($clientInfoRecords as $clientInfo) {
+            $reviewHTML .= '<div class="review-subsection">';
+            $reviewHTML .= '<h4 class="review-subtitle">' . htmlspecialchars($clientInfo->PartyType) . '</h4>';
             $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Client Information Records:</span>';
-            $reviewHTML .= '<span class="review-value">' . $clientInfoCount . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">AML Records:</span>';
-            $reviewHTML .= '<span class="review-value">' . $amlCount . '</span>';
+            $reviewHTML .= '<span class="review-label">Client Type:</span>';
+            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($clientInfo->ClientType) . '</span>';
             $reviewHTML .= '</div>';
             $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Documents Uploaded:</span>';
-            $reviewHTML .= '<span class="review-value">' . $docCount . '</span>';
+            $reviewHTML .= '<span class="review-label">Acting Type:</span>';
+            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($clientInfo->ClientActingTypeSelection) . '</span>';
+            $reviewHTML .= '</div>';
+            
+            // Show ownership proof status
+            $ownershipProofStatus = $clientInfo->OwnershipProofID ? 'Uploaded' : 'Not Uploaded';
+            $reviewHTML .= '<div class="review-item">';
+            $reviewHTML .= '<span class="review-label">Ownership Proof:</span>';
+            $reviewHTML .= '<span class="review-value">' . $ownershipProofStatus . '</span>';
             $reviewHTML .= '</div>';
             $reviewHTML .= '</div>';
-
-            $reviewHTML .= '</div>';
-
-            $reviewHTML .= '<div class="alert alert-info mt-3">';
-            $reviewHTML .= '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
-            $reviewHTML .= '<circle cx="12" cy="12" r="10"/>';
-            $reviewHTML .= '<line x1="12" y1="16" x2="12" y2="12"/>';
-            $reviewHTML .= '<line x1="12" y1="8" x2="12.01" y2="8"/>';
-            $reviewHTML .= '</svg>';
-            $reviewHTML .= 'Please review all information carefully before submitting. Once submitted, you will receive a unique serial number for billing purposes.';
-            $reviewHTML .= '</div>';
-
-            $fields->push(LiteralField::create('ReviewContent', $reviewHTML));
-
-            return $fields;
         }
+    } else {
+        $reviewHTML .= '<div class="review-item">';
+        $reviewHTML .= '<span class="review-value">No client information records found.</span>';
+        $reviewHTML .= '</div>';
+    }
+    $reviewHTML .= '</div>';
+
+    // Detailed AML Records
+    $amlRecords = $submission->AMLRecords();
+    $reviewHTML .= '<div class="review-section">';
+    $reviewHTML .= '<h3 class="review-title">AML Records</h3>';
+    
+    if ($amlRecords->count() > 0) {
+        foreach ($amlRecords as $amlRecord) {
+            $reviewHTML .= '<div class="review-subsection">';
+            $reviewHTML .= '<h4 class="review-subtitle">' . htmlspecialchars($amlRecord->PartyType) . '</h4>';
+            $reviewHTML .= '<div class="review-item">';
+            $reviewHTML .= '<span class="review-label">AML Search Completed:</span>';
+            $reviewHTML .= '<span class="review-value">' . ($amlRecord->AMLCompleted ? 'Yes' : 'No') . '</span>';
+            $reviewHTML .= '</div>';
+            $reviewHTML .= '<div class="review-item">';
+            $reviewHTML .= '<span class="review-label">Form B Section 2 Checked:</span>';
+            $reviewHTML .= '<span class="review-value">' . ($amlRecord->FormBSection2Checked ? 'Yes' : 'No') . '</span>';
+            $reviewHTML .= '</div>';
+            $reviewHTML .= '<div class="review-item">';
+            $reviewHTML .= '<span class="review-label">Other Party Represented:</span>';
+            $reviewHTML .= '<span class="review-value">' . ($amlRecord->OtherPartyRepresented ? 'Yes' : 'No') . '</span>';
+            $reviewHTML .= '</div>';
+            $reviewHTML .= '<div class="review-item">';
+            $reviewHTML .= '<span class="review-label">UCP Type:</span>';
+            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($amlRecord->UCPType) . '</span>';
+            $reviewHTML .= '</div>';
+            $reviewHTML .= '<div class="review-item">';
+            $reviewHTML .= '<span class="review-label">ECDD Required:</span>';
+            $reviewHTML .= '<span class="review-value">' . ($amlRecord->ECDDRequired ? 'Yes' : 'No') . '</span>';
+            $reviewHTML .= '</div>';
+            $reviewHTML .= '<div class="review-item">';
+            $reviewHTML .= '<span class="review-label">EA Approval Obtained:</span>';
+            $reviewHTML .= '<span class="review-value">' . ($amlRecord->EAApprovalObtained ? 'Yes' : 'No') . '</span>';
+            $reviewHTML .= '</div>';
+            
+            // Show file upload statuses
+            $amlFileStatus = $amlRecord->AMLFileID ? 'Uploaded' : 'Not Uploaded';
+            $formQCIDStatus = $amlRecord->FormQCIDID ? 'Uploaded' : 'Not Uploaded';
+            
+            $reviewHTML .= '<div class="review-item">';
+            $reviewHTML .= '<span class="review-label">AML File:</span>';
+            $reviewHTML .= '<span class="review-value">' . $amlFileStatus . '</span>';
+            $reviewHTML .= '</div>';
+            $reviewHTML .= '<div class="review-item">';
+            $reviewHTML .= '<span class="review-label">Form QCI-D:</span>';
+            $reviewHTML .= '<span class="review-value">' . $formQCIDStatus . '</span>';
+            $reviewHTML .= '</div>';
+        
+        }
+    } else {
+        $reviewHTML .= '<div class="review-item">';
+        $reviewHTML .= '<span class="review-value">No AML records found.</span>';
+        $reviewHTML .= '</div>';
+    }
+    $reviewHTML .= '</div>';
+
+    $reviewHTML .= '</div>';
+
+    $reviewHTML .= '<div class="alert alert-info mt-3">';
+    $reviewHTML .= '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+    $reviewHTML .= '<circle cx="12" cy="12" r="10"/>';
+    $reviewHTML .= '<line x1="12" y1="16" x2="12" y2="12"/>';
+    $reviewHTML .= '<line x1="12" y1="8" x2="12.01" y2="8"/>';
+    $reviewHTML .= '</svg>';
+    $reviewHTML .= 'Please review all information carefully before submitting. Once submitted, you will receive a unique serial number for billing purposes.';
+    $reviewHTML .= '</div>';
+
+    $fields->push(LiteralField::create('ReviewContent', $reviewHTML));
+
+    return $fields;
+}
 
         public function nextStep($data, $form)
         {
@@ -1615,7 +1483,7 @@ namespace {
             $body .= "Property Address: {$submission->PropertyAddress}\n\n";
             $body .= "Please review the submission in the admin panel.";
 
-            $email = \SilverStripe\Control\Email\Email::create()
+            $email = Email::create()
                 ->setTo($to)
                 ->setSubject($subject)
                 ->setBody($body);

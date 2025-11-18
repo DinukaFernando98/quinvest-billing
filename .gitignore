@@ -3,6 +3,9 @@
 /silverstripe-cache/
 /.env
 /vendor/
-/themes/startup-theme/
+/themes/startup-theme/.github/
+/themes/startup-theme/favicons/
+/themes/startup-theme/fonts/
+/themes/startup-theme/images/
 /_resources/
 /public/_resources/
