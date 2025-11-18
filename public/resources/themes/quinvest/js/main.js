@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     addProgressStepStyles();
 });
 
-// Enhanced smooth scroll for mouse wheel
+// Enhanced smooth scrolling
 (function() {
     let isScrolling = false;
     let scrollTarget = 0;
@@ -39,6 +39,39 @@ document.addEventListener('DOMContentLoaded', () => {
             scrollTarget = window.pageYOffset;
             initialized = true;
         }, 100);
+    });
+    
+    // Handle anchor clicks with smooth scroll
+    document.addEventListener('click', function(e) {
+        const link = e.target.closest('a[href*="#"]');
+        if (link) {
+            const href = link.getAttribute('href');
+            const hashIndex = href.indexOf('#');
+            if (hashIndex !== -1) {
+                const hash = href.substring(hashIndex);
+                const targetElement = document.querySelector(hash);
+                if (targetElement) {
+                    e.preventDefault();
+                    
+                    // Get target position
+                    const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
+                    scrollTarget = targetPosition;
+                    
+                    // Start smooth scroll
+                    if (!isScrolling) {
+                        isScrolling = true;
+                        requestAnimationFrame(smoothScroll);
+                    }
+                    
+                    // Update URL hash
+                    if (href.indexOf('?') === -1) {
+                        history.pushState(null, null, hash);
+                    } else {
+                        window.location.href = href;
+                    }
+                }
+            }
+        }
     });
     
     window.addEventListener('wheel', function(e) {
