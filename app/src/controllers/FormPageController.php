@@ -14,7 +14,7 @@ use SilverStripe\Forms\FormAction;
 use SilverStripe\Forms\HiddenField;
 use SilverStripe\Control\HTTPRequest;
 use SilverStripe\Security\Security;
-use Quinvest\Model\FormSubmission;
+use App\Model\FormSubmission;
 use SilverStripe\Forms\Validation\RequiredFieldsValidator;
 
 class FormPageController extends PageController

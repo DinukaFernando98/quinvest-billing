@@ -1,6 +1,6 @@
 <?php
 
-namespace Quinvest\Controllers;
+namespace App\Controller;
 
 use PageController;
 use SilverStripe\Security\MemberAuthenticator\MemberAuthenticator;

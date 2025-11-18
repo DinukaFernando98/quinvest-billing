@@ -10,7 +10,8 @@
         "silverstripe/recipe-cms": "~6.1.0@stable",
         "silverstripe/startup-theme": "~1.0.11@stable",
         "silverstripe/login-forms": "~6.1.0@stable",
-        "silverstripe/htmleditor-tinymce": "~1.0.2@stable"
+        "silverstripe/htmleditor-tinymce": "~1.0.2@stable",
+        "unclecheese/dropzone": "^1.4"
     },
     "require-dev": {
         "phpunit/phpunit": "^11.3"
