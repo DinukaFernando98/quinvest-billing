@@ -8,7 +8,6 @@
     $MetaTags(false)
 
     <% include Favicons %>
-    <link rel="stylesheet" type="text/css" href="/_resources/themes/startup-theme/css/main.css">
 
     <title><% if $MetaTitle %>$MetaTitle<% else %>$Title<% end_if %> | $SiteConfig.Title</title>
 </head>
@@ -16,6 +15,5 @@
     <% include Header %>
         $Layout
     <% include Footer %>
-    <script type="module" src="{$themedResourceURL('js/main.js')}" defer></script>
 </body>
 </html>

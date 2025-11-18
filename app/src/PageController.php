@@ -33,6 +33,10 @@ namespace {
     use App\Model\ECDDForm;
     use App\Model\UCPForm;
     use SilverStripe\Control\Email\Email;
+    use SilverStripe\Core\Injector\Injector;
+    use SilverStripe\View\Requirements;
+    use SilverStripe\View\SSViewer;
+    use SilverStripe\View\ThemeResourceLoader;
 
     /**
      * @template T of Page
@@ -52,6 +56,13 @@ namespace {
         protected function init()
         {
             parent::init();
+
+            $theme = SSViewer::get_themes();
+            // gets the first theme in the list
+            $theme = reset($theme);
+
+            Requirements::css("themes/" . $theme . "/css/main.css");
+            Requirements::javascript("themes/" . $theme . "/js/main.js");
 
             // Handle step parameter from URL
             $step = $this->getRequest()->getVar('step');

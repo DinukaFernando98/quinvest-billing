@@ -9,7 +9,6 @@
         "silverstripe/recipe-plugin": "^2.1",
         "silverstripe/vendor-plugin": "^2.0",
         "silverstripe/recipe-cms": "^5.2",
-        "silverstripe/startup-theme": "^1.0",
         "silverstripe/login-forms": "^5.2"
     },
 
@@ -39,6 +38,9 @@
             ".htaccess",
             "index.php",
             "web.config"
+        ],
+        "expose": [
+            "themes/quinvest"
         ]
     },
 

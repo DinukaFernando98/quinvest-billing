@@ -3,6 +3,5 @@ Name: mytheme
 ---
 SilverStripe\View\SSViewer:
   themes:
-    - '$public'
-    - 'startup-theme'
+    - 'quinvest'
     - '$default'

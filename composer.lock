@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f80721a4996af8a69d56010a4c23ddaa",
+    "content-hash": "8e5c90f808d599296a49f2fb54d72e61",
     "packages": [
         {
             "name": "composer/ca-bundle",
@@ -3399,54 +3399,6 @@
                 "source": "https://github.com/silverstripe/silverstripe-siteconfig/tree/5.4.2"
             },
             "time": "2025-11-03T23:45:34+00:00"
-        },
-        {
-            "name": "silverstripe/startup-theme",
-            "version": "1.0.12",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/silverstripe/startup-theme.git",
-                "reference": "3b4845b9f8f9c60573544eb634b4ade55886997d"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/silverstripe/startup-theme/zipball/3b4845b9f8f9c60573544eb634b4ade55886997d",
-                "reference": "3b4845b9f8f9c60573544eb634b4ade55886997d",
-                "shasum": ""
-            },
-            "require": {
-                "silverstripe/framework": ">=5.2"
-            },
-            "type": "silverstripe-theme",
-            "extra": {
-                "expose": [
-                    "css",
-                    "images",
-                    "favicons",
-                    "fonts",
-                    "js"
-                ]
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "BSD-3-Clause"
-            ],
-            "authors": [
-                {
-                    "name": "Silverstripe Supernovas",
-                    "email": "supernovas@silverstripe.com"
-                }
-            ],
-            "description": "Silverstripe Startup theme",
-            "keywords": [
-                "silverstripe",
-                "theme"
-            ],
-            "support": {
-                "issues": "https://github.com/silverstripe/startup-theme/issues",
-                "source": "https://github.com/silverstripe/startup-theme/tree/1.0.12"
-            },
-            "time": "2025-10-21T20:36:06+00:00"
         },
         {
             "name": "silverstripe/supported-modules",
