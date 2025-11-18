@@ -18,7 +18,7 @@ class BillingAdmin extends ModelAdmin
 
     private static $url_segment = 'billing-forms';
     private static $menu_title = 'Billing Forms';
-    private static $menu_icon_class = 'font-icon-money';
+    private static $menu_icon_class = 'font-icon-book-open';
 
     public function getEditForm($id = null, $fields = null)
     {
