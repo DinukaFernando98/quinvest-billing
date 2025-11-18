@@ -4,7 +4,7 @@ namespace {
 
     use App\Model\BillingFormSubmission;
     use SilverStripe\CMS\Controllers\ContentController;
-    use SilverStripe\Forms\Validation\RequiredFieldsValidator;
+    use SilverStripe\Forms\RequiredFields;
     use SilverStripe\Security\Security;
     use SilverStripe\Security\Member;
     use SilverStripe\Control\HTTPRequest;
@@ -106,7 +106,7 @@ namespace {
                     ->setUseButtonTag(true)
             );
 
-            $validator = RequiredFieldsValidator::create('SerialNumber');
+            $validator = RequiredFields::create('SerialNumber');
 
             $form = Form::create($this, 'BillingForm', $fields, $actions, $validator);
             $form->setFormMethod('POST');
@@ -274,7 +274,7 @@ namespace {
                 'MultiStepForm',
                 $fields,
                 $actions,
-                RequiredFieldsValidator::create($required)
+                RequiredFields::create($required)
             );
 
             $form->setFormMethod('POST');
@@ -1591,5 +1591,11 @@ namespace {
             $currentStep = $this->getRequest()->getSession()->get('FormStep') ?: 1;
             return $currentStep == 6 ? 'active' : '';
         }
+
+        public function RequestVar($key)
+        {
+            return $this->getRequest()->getVar($key);
+        }
+
     }
 }

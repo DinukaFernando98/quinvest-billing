@@ -89,7 +89,7 @@
             </div>
         </div>
         
-    <% if $getRequest.getVar('success') %>
+    <% if $RequestVar('success') %>
     <div class="modal active" id="successModal">
         <div class="modal-content success">
             <div class="modal-icon">
@@ -101,7 +101,7 @@
             <h2>Form Submitted Successfully!</h2>
             <p>Your submission serial number is:</p>
             <div class="serial-number-container">
-                <strong id="serialNumber">$getRequest.getVar('serial')</strong>
+                <strong id="serialNumber">$RequestVar('serial')</strong>
                 <button class="copy-serial-btn"
                     onclick="navigator.clipboard.writeText(document.getElementById('serialNumber').innerText); this.querySelector('.copy-text').innerText='Copied!'; setTimeout(()=>{this.querySelector('.copy-text').innerText='Copy';},1500);"
                     aria-label="Copy serial number">

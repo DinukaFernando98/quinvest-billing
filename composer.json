@@ -3,18 +3,20 @@
     "type": "silverstripe-recipe",
     "description": "The SilverStripe Framework Installer",
     "license": "BSD-3-Clause",
+
     "require": {
-        "php": "^8.3",
-        "silverstripe/recipe-plugin": "~2.1.0@stable",
-        "silverstripe/vendor-plugin": "~3.0.0@stable",
-        "silverstripe/recipe-cms": "~6.1.0@stable",
-        "silverstripe/startup-theme": "~1.0.11@stable",
-        "silverstripe/login-forms": "~6.1.0@stable",
-        "silverstripe/htmleditor-tinymce": "~1.0.2@stable"
+        "php": "^8.2",
+        "silverstripe/recipe-plugin": "^2.1",
+        "silverstripe/vendor-plugin": "^2.0",
+        "silverstripe/recipe-cms": "^5.2",
+        "silverstripe/startup-theme": "^1.0",
+        "silverstripe/login-forms": "^5.2"
     },
+
     "require-dev": {
-        "phpunit/phpunit": "^11.3"
+        "phpunit/phpunit": "*"
     },
+
     "extra": {
         "project-files": [
             "app/_config/*",
@@ -39,6 +41,7 @@
             "web.config"
         ]
     },
+
     "config": {
         "process-timeout": 600,
         "allow-plugins": {
@@ -47,6 +50,7 @@
             "silverstripe/vendor-plugin": true
         }
     },
+
     "prefer-stable": true,
     "minimum-stability": "dev"
 }

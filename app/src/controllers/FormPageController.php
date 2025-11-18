@@ -3,9 +3,9 @@
 namespace App\PageController;
 
 use PageController;
-use SilverStripe\Core\Validation\ValidationException;
 use SilverStripe\Forms\Form;
 use SilverStripe\Forms\FieldList;
+use SilverStripe\Forms\RequiredFields;
 use SilverStripe\Forms\TextField;
 use SilverStripe\Forms\TextareaField;
 use SilverStripe\Forms\OptionsetField;
@@ -13,9 +13,9 @@ use SilverStripe\Forms\FileField;
 use SilverStripe\Forms\FormAction;
 use SilverStripe\Forms\HiddenField;
 use SilverStripe\Control\HTTPRequest;
+use SilverStripe\ORM\ValidationException;
 use SilverStripe\Security\Security;
 use App\Model\FormSubmission;
-use SilverStripe\Forms\Validation\RequiredFieldsValidator;
 
 class FormPageController extends PageController
 {
@@ -279,7 +279,7 @@ class FormPageController extends PageController
                 break;
         }
 
-        return RequiredFieldsValidator::create($required);
+        return RequiredFields::create($required);
     }
 
     public function saveStep($data, $form)
