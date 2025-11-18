@@ -176,6 +176,9 @@ namespace {
 
             $billing->write();
 
+            // Send billing notification email
+            $this->sendBillingNotificationEmail($billing);
+
             $form->sessionMessage('Billing form submitted successfully!', 'good');
             return $this->redirectBack();
         }
@@ -448,7 +451,7 @@ namespace {
                     ])->setValue($amlRecord ? (string)$amlRecord->AMLCompleted : null),
 
                     FileField::create("AMLFile_{$index}", 'Upload AML PDF file')
-                        
+
                         ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'),
                 ];
 
@@ -470,7 +473,7 @@ namespace {
                     ])->setValue($amlRecord ? (string)$amlRecord->FormBSection2Checked : null),
 
                     FileField::create("FormQCID_{$index}", 'Upload Form QCI-D')
-                        
+
                         ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'),
                 ]);
 
@@ -528,7 +531,7 @@ namespace {
                     ])->setValue($amlRecord ? (string)$amlRecord->ECDDRequired : null),
 
                     FileField::create("ECDDForm_{$index}", 'Upload ECDD Form')
-                        
+
                         ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'),
                 ]);
 
@@ -571,7 +574,7 @@ namespace {
 
                 $wrapperContent = array_merge($wrapperContent, [
                     FileField::create("FormQCIB_{$index}", 'Upload Form QCI-B')
-                        
+
                         ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'),
                 ]);
 
@@ -625,7 +628,7 @@ namespace {
             if ($transactionType === 'Sale') {
                 $existingOptionToPurchase = $existingDocsByType['Option To Purchase / Sales Agreement'] ?? [];
                 $fields->push(FileField::create('OptionToPurchase', 'Option To Purchase / Sales Agreement')
-                    
+
                     ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
                 // Show existing file info
@@ -649,7 +652,7 @@ namespace {
             } else {
                 $existingTenancyAgreement = $existingDocsByType['Tenancy Agreement / Letter Of Intent / Letter Of Offer'] ?? [];
                 $fields->push(FileField::create('TenancyAgreement', 'Tenancy Agreement / Letter Of Intent / Letter Of Offer')
-                    
+
                     ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
                 // Show existing file info
@@ -680,7 +683,7 @@ namespace {
             ]));
 
             $fields->push(FileField::create('CEAAgreement', 'Upload CEA Agreement')
-                
+
                 ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
             if (!empty($existingCEAAgreement)) {
@@ -709,7 +712,7 @@ namespace {
             ]));
 
             $fields->push(FileField::create('CobrokeAgreement', 'Upload Co-broke Agreement')
-                
+
                 ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
             if (!empty($existingCobrokeAgreement)) {
@@ -738,7 +741,7 @@ namespace {
             ]));
 
             $fields->push(FileField::create('CommissionAgreement', 'Upload Commission Agreement')
-                
+
                 ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
             if (!empty($existingCommissionAgreement)) {
@@ -768,7 +771,7 @@ namespace {
                 ]));
 
                 $fields->push(FileField::create('HDBApproval', 'Upload HDB Approval letter')
-                    
+
                     ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
                 if (!empty($existingHDBApproval)) {
@@ -877,146 +880,145 @@ namespace {
         }
 
         private function buildStep6Fields($submission)
-{
-    $fields = FieldList::create();
-    $fields->push(HiddenField::create('CurrentStep', '', 6));
-    $fields->push(HiddenField::create('SubmissionID', '', $submission->ID));
+        {
+            $fields = FieldList::create();
+            $fields->push(HiddenField::create('CurrentStep', '', 6));
+            $fields->push(HiddenField::create('SubmissionID', '', $submission->ID));
 
-    $reviewHTML = '<div class="review-content">';
+            $reviewHTML = '<div class="review-content">';
 
-    // Step 1 Review
-    $reviewHTML .= '<div class="review-section">';
-    $reviewHTML .= '<h3 class="review-title">Login Information</h3>';
-    $reviewHTML .= '<div class="review-item">';
-    $reviewHTML .= '<span class="review-label">Salesperson Name:</span>';
-    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->SalespersonName) . '</span>';
-    $reviewHTML .= '</div>';
-    $reviewHTML .= '<div class="review-item">';
-    $reviewHTML .= '<span class="review-label">RES Number:</span>';
-    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->RESNumber) . '</span>';
-    $reviewHTML .= '</div>';
-    $reviewHTML .= '</div>';
-
-    // Step 2 Review
-    $reviewHTML .= '<div class="review-section">';
-    $reviewHTML .= '<h3 class="review-title">Property Details</h3>';
-    $reviewHTML .= '<div class="review-item">';
-    $reviewHTML .= '<span class="review-label">Property Address:</span>';
-    $reviewHTML .= '<span class="review-value">' . nl2br(htmlspecialchars($submission->PropertyAddress)) . '</span>';
-    $reviewHTML .= '</div>';
-    $reviewHTML .= '<div class="review-item">';
-    $reviewHTML .= '<span class="review-label">Transaction Type:</span>';
-    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->TransactionType) . '</span>';
-    $reviewHTML .= '</div>';
-    $reviewHTML .= '<div class="review-item">';
-    $reviewHTML .= '<span class="review-label">Representing:</span>';
-    $reviewHTML .= '<span class="review-value">' . implode(', ', $submission->getRepresentingArray()) . '</span>';
-    $reviewHTML .= '</div>';
-    $reviewHTML .= '</div>';
-
-    // Detailed Client Information Records
-    $clientInfoRecords = $submission->ClientInfo();
-    $reviewHTML .= '<div class="review-section">';
-    $reviewHTML .= '<h3 class="review-title">Client Information Records</h3>';
-    
-    if ($clientInfoRecords->count() > 0) {
-        foreach ($clientInfoRecords as $clientInfo) {
-            $reviewHTML .= '<div class="review-subsection">';
-            $reviewHTML .= '<h4 class="review-subtitle">' . htmlspecialchars($clientInfo->PartyType) . '</h4>';
+            // Step 1 Review
+            $reviewHTML .= '<div class="review-section">';
+            $reviewHTML .= '<h3 class="review-title">Login Information</h3>';
             $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Client Type:</span>';
-            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($clientInfo->ClientType) . '</span>';
+            $reviewHTML .= '<span class="review-label">Salesperson Name:</span>';
+            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->SalespersonName) . '</span>';
             $reviewHTML .= '</div>';
             $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Acting Type:</span>';
-            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($clientInfo->ClientActingTypeSelection) . '</span>';
+            $reviewHTML .= '<span class="review-label">RES Number:</span>';
+            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->RESNumber) . '</span>';
             $reviewHTML .= '</div>';
-            
-            // Show ownership proof status
-            $ownershipProofStatus = $clientInfo->OwnershipProofID ? 'Uploaded' : 'Not Uploaded';
+            $reviewHTML .= '</div>';
+
+            // Step 2 Review
+            $reviewHTML .= '<div class="review-section">';
+            $reviewHTML .= '<h3 class="review-title">Property Details</h3>';
             $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Ownership Proof:</span>';
-            $reviewHTML .= '<span class="review-value">' . $ownershipProofStatus . '</span>';
+            $reviewHTML .= '<span class="review-label">Property Address:</span>';
+            $reviewHTML .= '<span class="review-value">' . nl2br(htmlspecialchars($submission->PropertyAddress)) . '</span>';
+            $reviewHTML .= '</div>';
+            $reviewHTML .= '<div class="review-item">';
+            $reviewHTML .= '<span class="review-label">Transaction Type:</span>';
+            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->TransactionType) . '</span>';
+            $reviewHTML .= '</div>';
+            $reviewHTML .= '<div class="review-item">';
+            $reviewHTML .= '<span class="review-label">Representing:</span>';
+            $reviewHTML .= '<span class="review-value">' . implode(', ', $submission->getRepresentingArray()) . '</span>';
             $reviewHTML .= '</div>';
             $reviewHTML .= '</div>';
+
+            // Detailed Client Information Records
+            $clientInfoRecords = $submission->ClientInfo();
+            $reviewHTML .= '<div class="review-section">';
+            $reviewHTML .= '<h3 class="review-title">Client Information Records</h3>';
+
+            if ($clientInfoRecords->count() > 0) {
+                foreach ($clientInfoRecords as $clientInfo) {
+                    $reviewHTML .= '<div class="review-subsection">';
+                    $reviewHTML .= '<h4 class="review-subtitle">' . htmlspecialchars($clientInfo->PartyType) . '</h4>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">Client Type:</span>';
+                    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($clientInfo->ClientType) . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">Acting Type:</span>';
+                    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($clientInfo->ClientActingTypeSelection) . '</span>';
+                    $reviewHTML .= '</div>';
+
+                    // Show ownership proof status
+                    $ownershipProofStatus = $clientInfo->OwnershipProofID ? 'Uploaded' : 'Not Uploaded';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">Ownership Proof:</span>';
+                    $reviewHTML .= '<span class="review-value">' . $ownershipProofStatus . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '</div>';
+                }
+            } else {
+                $reviewHTML .= '<div class="review-item">';
+                $reviewHTML .= '<span class="review-value">No client information records found.</span>';
+                $reviewHTML .= '</div>';
+            }
+            $reviewHTML .= '</div>';
+
+            // Detailed AML Records
+            $amlRecords = $submission->AMLRecords();
+            $reviewHTML .= '<div class="review-section">';
+            $reviewHTML .= '<h3 class="review-title">AML Records</h3>';
+
+            if ($amlRecords->count() > 0) {
+                foreach ($amlRecords as $amlRecord) {
+                    $reviewHTML .= '<div class="review-subsection">';
+                    $reviewHTML .= '<h4 class="review-subtitle">' . htmlspecialchars($amlRecord->PartyType) . '</h4>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">AML Search Completed:</span>';
+                    $reviewHTML .= '<span class="review-value">' . ($amlRecord->AMLCompleted ? 'Yes' : 'No') . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">Form B Section 2 Checked:</span>';
+                    $reviewHTML .= '<span class="review-value">' . ($amlRecord->FormBSection2Checked ? 'Yes' : 'No') . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">Other Party Represented:</span>';
+                    $reviewHTML .= '<span class="review-value">' . ($amlRecord->OtherPartyRepresented ? 'Yes' : 'No') . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">UCP Type:</span>';
+                    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($amlRecord->UCPType) . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">ECDD Required:</span>';
+                    $reviewHTML .= '<span class="review-value">' . ($amlRecord->ECDDRequired ? 'Yes' : 'No') . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">EA Approval Obtained:</span>';
+                    $reviewHTML .= '<span class="review-value">' . ($amlRecord->EAApprovalObtained ? 'Yes' : 'No') . '</span>';
+                    $reviewHTML .= '</div>';
+
+                    // Show file upload statuses
+                    $amlFileStatus = $amlRecord->AMLFileID ? 'Uploaded' : 'Not Uploaded';
+                    $formQCIDStatus = $amlRecord->FormQCIDID ? 'Uploaded' : 'Not Uploaded';
+
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">AML File:</span>';
+                    $reviewHTML .= '<span class="review-value">' . $amlFileStatus . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">Form QCI-D:</span>';
+                    $reviewHTML .= '<span class="review-value">' . $formQCIDStatus . '</span>';
+                    $reviewHTML .= '</div>';
+                }
+            } else {
+                $reviewHTML .= '<div class="review-item">';
+                $reviewHTML .= '<span class="review-value">No AML records found.</span>';
+                $reviewHTML .= '</div>';
+            }
+            $reviewHTML .= '</div>';
+
+            $reviewHTML .= '</div>';
+
+            $reviewHTML .= '<div class="alert alert-info mt-3">';
+            $reviewHTML .= '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+            $reviewHTML .= '<circle cx="12" cy="12" r="10"/>';
+            $reviewHTML .= '<line x1="12" y1="16" x2="12" y2="12"/>';
+            $reviewHTML .= '<line x1="12" y1="8" x2="12.01" y2="8"/>';
+            $reviewHTML .= '</svg>';
+            $reviewHTML .= 'Please review all information carefully before submitting. Once submitted, you will receive a unique serial number for billing purposes.';
+            $reviewHTML .= '</div>';
+
+            $fields->push(LiteralField::create('ReviewContent', $reviewHTML));
+
+            return $fields;
         }
-    } else {
-        $reviewHTML .= '<div class="review-item">';
-        $reviewHTML .= '<span class="review-value">No client information records found.</span>';
-        $reviewHTML .= '</div>';
-    }
-    $reviewHTML .= '</div>';
-
-    // Detailed AML Records
-    $amlRecords = $submission->AMLRecords();
-    $reviewHTML .= '<div class="review-section">';
-    $reviewHTML .= '<h3 class="review-title">AML Records</h3>';
-    
-    if ($amlRecords->count() > 0) {
-        foreach ($amlRecords as $amlRecord) {
-            $reviewHTML .= '<div class="review-subsection">';
-            $reviewHTML .= '<h4 class="review-subtitle">' . htmlspecialchars($amlRecord->PartyType) . '</h4>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">AML Search Completed:</span>';
-            $reviewHTML .= '<span class="review-value">' . ($amlRecord->AMLCompleted ? 'Yes' : 'No') . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Form B Section 2 Checked:</span>';
-            $reviewHTML .= '<span class="review-value">' . ($amlRecord->FormBSection2Checked ? 'Yes' : 'No') . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Other Party Represented:</span>';
-            $reviewHTML .= '<span class="review-value">' . ($amlRecord->OtherPartyRepresented ? 'Yes' : 'No') . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">UCP Type:</span>';
-            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($amlRecord->UCPType) . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">ECDD Required:</span>';
-            $reviewHTML .= '<span class="review-value">' . ($amlRecord->ECDDRequired ? 'Yes' : 'No') . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">EA Approval Obtained:</span>';
-            $reviewHTML .= '<span class="review-value">' . ($amlRecord->EAApprovalObtained ? 'Yes' : 'No') . '</span>';
-            $reviewHTML .= '</div>';
-            
-            // Show file upload statuses
-            $amlFileStatus = $amlRecord->AMLFileID ? 'Uploaded' : 'Not Uploaded';
-            $formQCIDStatus = $amlRecord->FormQCIDID ? 'Uploaded' : 'Not Uploaded';
-            
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">AML File:</span>';
-            $reviewHTML .= '<span class="review-value">' . $amlFileStatus . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Form QCI-D:</span>';
-            $reviewHTML .= '<span class="review-value">' . $formQCIDStatus . '</span>';
-            $reviewHTML .= '</div>';
-        
-        }
-    } else {
-        $reviewHTML .= '<div class="review-item">';
-        $reviewHTML .= '<span class="review-value">No AML records found.</span>';
-        $reviewHTML .= '</div>';
-    }
-    $reviewHTML .= '</div>';
-
-    $reviewHTML .= '</div>';
-
-    $reviewHTML .= '<div class="alert alert-info mt-3">';
-    $reviewHTML .= '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
-    $reviewHTML .= '<circle cx="12" cy="12" r="10"/>';
-    $reviewHTML .= '<line x1="12" y1="16" x2="12" y2="12"/>';
-    $reviewHTML .= '<line x1="12" y1="8" x2="12.01" y2="8"/>';
-    $reviewHTML .= '</svg>';
-    $reviewHTML .= 'Please review all information carefully before submitting. Once submitted, you will receive a unique serial number for billing purposes.';
-    $reviewHTML .= '</div>';
-
-    $fields->push(LiteralField::create('ReviewContent', $reviewHTML));
-
-    return $fields;
-}
 
         public function nextStep($data, $form)
         {
@@ -1063,7 +1065,7 @@ namespace {
 
             $this->getRequest()->getSession()->set('FormStep', $previousStep);
 
-            return $this->redirect($this->Link() . '?step=' . $previousStep. '#form-start');
+            return $this->redirect($this->Link() . '?step=' . $previousStep . '#form-start');
         }
 
         public function submitForm($data, $form)
@@ -1485,13 +1487,38 @@ namespace {
                 'wendy.low@quinvest-chambers.com.sg'
             ];
 
-            $subject = "New Form Submission - {$submission->SalespersonName}";
-            $body = "A new form has been submitted by {$submission->SalespersonName}.\n\n";
-            $body .= "Serial Number: {$submission->SerialNumber}\n";
-            $body .= "RES Number: {$submission->RESNumber}\n";
-            $body .= "Transaction Type: {$submission->TransactionType}\n";
-            $body .= "Property Address: {$submission->PropertyAddress}\n\n";
-            $body .= "Please review the submission in the admin panel.";
+            $subject = "New Form Submission by {$submission->SalespersonName}";
+            $body = "<p>A new form has been submitted by <strong>{$submission->SalespersonName}</strong>.</p>
+                    <p><strong>Serial Number:</strong> {$submission->SerialNumber}</p>
+                    <p><strong>RES Number:</strong> {$submission->RESNumber}</p>
+                    <p><strong>Transaction Type:</strong> {$submission->TransactionType}</p>
+                    <p><strong>Property Address:</strong> {$submission->PropertyAddress}</p>
+                    <p><strong>Submitted Date:</strong> {$submission->SubmittedDate}</p>
+                    <p><strong>Status:</strong> {$submission->Status}</p>
+                    
+                    <h3>Client Information:</h3>";
+
+            // Add client information
+            $clientInfoRecords = $submission->ClientInfo();
+            if ($clientInfoRecords->count() > 0) {
+                foreach ($clientInfoRecords as $clientInfo) {
+                    $body .= "<p><strong>{$clientInfo->PartyType}:</strong> {$clientInfo->ClientType} - {$clientInfo->ClientActingTypeSelection}</p>";
+                }
+            }
+
+            // Add AML information
+            $amlRecords = $submission->AMLRecords();
+            if ($amlRecords->count() > 0) {
+                $body .= "<h3>AML Records:</h3>";
+                foreach ($amlRecords as $amlRecord) {
+                    $body .= "<p><strong>{$amlRecord->PartyType}:</strong> AML Completed: " . ($amlRecord->AMLCompleted ? 'Yes' : 'No') .
+                        ", ECDD Required: " . ($amlRecord->ECDDRequired ? 'Yes' : 'No') .
+                        ", EA Approval: " . ($amlRecord->EAApprovalObtained ? 'Yes' : 'No') . "</p>";
+                }
+            }
+
+            $body .= "<p>Please review the submission in the <a href=\"https://billing.quinvest-chambers.com.sg/admin/form-submissions\">admin panel</a>.</p>
+                    <p>Thank you!</p>";
 
             $email = Email::create()
                 ->setTo($to)
@@ -1501,8 +1528,42 @@ namespace {
             try {
                 $email->send();
             } catch (\Exception $e) {
-                // Log error but don't stop submission
                 error_log("Failed to send notification email: " . $e->getMessage());
+            }
+        }
+
+        private function sendBillingNotificationEmail($billingSubmission)
+        {
+            $to = [
+                'felicia.teo@quinvest-chambers.com.sg',
+                'Ian.loh@quinvest-chambers.com.sg',
+                'wendy.low@quinvest-chambers.com.sg'
+            ];
+
+            $originalSubmission = $billingSubmission->FormSubmission();
+            $uploadedBy = Member::get()->byID($billingSubmission->UploadedByID);
+
+            $subject = "New Billing Form Submission - {$originalSubmission->SerialNumber}";
+            $body = "<p>A new billing form has been submitted for Serial Number: <strong>{$billingSubmission->SerialNumber}</strong></p>
+                    <p><strong>Submission Details:</strong></p>
+                    <p><strong>Salesperson:</strong> {$originalSubmission->SalespersonName}</p>
+                    <p><strong>RES Number:</strong> {$originalSubmission->RESNumber}</p>
+                    <p><strong>Transaction Type:</strong> {$originalSubmission->TransactionType}</p>
+                    <p><strong>Property Address:</strong> {$originalSubmission->PropertyAddress}</p>
+                    <p><strong>Upload Date:</strong> " . date('Y-m-d H:i:s') . "</p>
+                    
+                    <p>Please review the billing submission in the <a href=\"https://billing.quinvest-chambers.com.sg/admin/billing-forms\">admin panel</a>.</p>
+                    <p>Thank you!</p>";
+
+            $email = Email::create()
+                ->setTo($to)
+                ->setSubject($subject)
+                ->setBody($body);
+
+            try {
+                $email->send();
+            } catch (\Exception $e) {
+                error_log("Failed to send billing notification email: " . $e->getMessage());
             }
         }
 
@@ -1607,6 +1668,5 @@ namespace {
         {
             return $this->getRequest()->getVar($key);
         }
-
     }
 }
