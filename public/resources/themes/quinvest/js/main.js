@@ -16,15 +16,16 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Enhanced smooth scrolling
-(function() {
+(function () {
     let isScrolling = false;
     let scrollTarget = 0;
     let initialized = false;
-    
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
     function smoothScroll() {
         const currentScroll = window.pageYOffset;
         const distance = scrollTarget - currentScroll;
-        
+
         if (Math.abs(distance) > 1) {
             window.scrollTo(0, currentScroll + distance * 0.1);
             requestAnimationFrame(smoothScroll);
@@ -32,55 +33,75 @@ document.addEventListener('DOMContentLoaded', () => {
             isScrolling = false;
         }
     }
-    
+
     // Initialize scroll target after page load and anchor jump
-    window.addEventListener('load', function() {
-        setTimeout(function() {
+    window.addEventListener('load', function () {
+        setTimeout(function () {
             scrollTarget = window.pageYOffset;
             initialized = true;
         }, 100);
     });
-    
-    // Handle anchor clicks with smooth scroll
-    document.addEventListener('click', function(e) {
-        const link = e.target.closest('a[href*="#"]');
-        if (link) {
-            const href = link.getAttribute('href');
-            const hashIndex = href.indexOf('#');
-            if (hashIndex !== -1) {
-                const hash = href.substring(hashIndex);
-                const targetElement = document.querySelector(hash);
-                if (targetElement) {
-                    e.preventDefault();
-                    
-                    // Get target position
-                    const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
-                    scrollTarget = targetPosition;
-                    
-                    // Start smooth scroll
-                    if (!isScrolling) {
-                        isScrolling = true;
-                        requestAnimationFrame(smoothScroll);
-                    }
-                    
-                    // Update URL hash
-                    if (href.indexOf('?') === -1) {
-                        history.pushState(null, null, hash);
-                    } else {
-                        window.location.href = href;
+
+    // Handle anchor clicks with smooth scroll (desktop only)
+    if (!isMobile) {
+        document.addEventListener('click', function (e) {
+            const link = e.target.closest('a[href*="#"]');
+            if (link) {
+                const href = link.getAttribute('href');
+                const hashIndex = href.indexOf('#');
+                if (hashIndex !== -1) {
+                    const hash = href.substring(hashIndex);
+                    const targetElement = document.querySelector(hash);
+                    if (targetElement) {
+                        e.preventDefault();
+
+                        // Get target position
+                        const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
+                        scrollTarget = targetPosition;
+
+                        // Start smooth scroll
+                        if (!isScrolling) {
+                            isScrolling = true;
+                            requestAnimationFrame(smoothScroll);
+                        }
+
+                        // Update URL hash
+                        if (href.indexOf('?') === -1) {
+                            history.pushState(null, null, hash);
+                        } else {
+                            window.location.href = href;
+                        }
                     }
                 }
             }
-        }
-    });
-    
-    window.addEventListener('wheel', function(e) {
+        });
+    } else {
+        // Mobile: update scrollTarget after native anchor navigation
+        document.addEventListener('click', function (e) {
+            const link = e.target.closest('a[href*="#"]');
+            if (link) {
+                const href = link.getAttribute('href');
+                const hashIndex = href.indexOf('#');
+                if (hashIndex !== -1) {
+                    const hash = href.substring(hashIndex);
+                    const targetElement = document.querySelector(hash);
+                    if (targetElement) {
+                        setTimeout(function () {
+                            scrollTarget = window.pageYOffset;
+                        }, 100);
+                    }
+                }
+            }
+        });
+    }
+
+    window.addEventListener('wheel', function (e) {
         if (!initialized) return;
-        
+
         e.preventDefault();
         scrollTarget += e.deltaY;
         scrollTarget = Math.max(0, Math.min(scrollTarget, document.documentElement.scrollHeight - window.innerHeight));
-        
+
         if (!isScrolling) {
             isScrolling = true;
             requestAnimationFrame(smoothScroll);
@@ -91,20 +112,20 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===== STEP NAVIGATION =====
 function navigateToStep(targetStep) {
     const currentStep = parseInt(document.querySelector('.form-step')?.getAttribute('data-step') || 1);
-    
+
     console.log(`Navigating from step ${currentStep} to step ${targetStep}`);
-    
+
     // If going to a previous step, navigate directly (no validation needed)
     if (targetStep < currentStep) {
         redirectToStep(targetStep);
         return;
     }
-    
+
     // If going to the same step, do nothing
     if (targetStep === currentStep) {
         return;
     }
-    
+
     // If going to next step (current + 1), validate current form first
     if (targetStep === currentStep + 1) {
         if (validateCurrentStep()) {
@@ -112,7 +133,7 @@ function navigateToStep(targetStep) {
         }
         return;
     }
-    
+
     // If jumping ahead more than one step, check if we're past step 1
     // Once step 1 is completed, allow navigation to any step
     if (targetStep > currentStep + 1) {
@@ -132,7 +153,7 @@ function checkStep1Completion() {
     // Check if step 1 required fields are filled
     const salespersonName = document.querySelector('input[name="SalespersonName"]')?.value;
     const resNumber = document.querySelector('input[name="RESNumber"]')?.value;
-    
+
     return salespersonName && salespersonName.trim() && resNumber && resNumber.trim();
 }
 
@@ -146,10 +167,10 @@ function redirectToStep(step) {
 function validateCurrentStep() {
     const form = document.querySelector('.multi-step-form');
     if (!form) return true;
-    
+
     let isValid = true;
     const requiredFields = form.querySelectorAll('[required]');
-    
+
     requiredFields.forEach(field => {
         if (!field.value.trim() && field.type !== 'checkbox' && field.type !== 'radio') {
             isValid = false;
@@ -168,37 +189,37 @@ function validateCurrentStep() {
             }
         }
     });
-    
+
     if (!isValid) {
         showAlert('Please fill in all required fields before proceeding', 'error');
         const firstError = form.querySelector('[required][style*="border-color"]');
         if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return false;
     }
-    
+
     return true;
 }
 
 // ===== PROGRESS BAR INTERACTION =====
 function setupProgressBarInteractions() {
     // Add click event listeners to progress steps
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         const progressStep = e.target.closest('.progress-step');
         if (progressStep && (progressStep.classList.contains('completed') || progressStep.classList.contains('active'))) {
             e.preventDefault();
             e.stopPropagation();
-            
+
             const targetStep = parseInt(progressStep.getAttribute('data-step'));
             console.log('Progress step clicked:', targetStep);
             navigateToStep(targetStep);
         }
     });
-    
+
     const progressSteps = document.querySelectorAll('.progress-step');
-    
+
     progressSteps.forEach(step => {
         // Add hover effects
-        step.addEventListener('mouseenter', function() {
+        step.addEventListener('mouseenter', function () {
             if (this.classList.contains('completed') || this.classList.contains('active')) {
                 this.style.cursor = 'pointer';
                 this.style.transform = 'translateY(-2px)';
@@ -206,8 +227,8 @@ function setupProgressBarInteractions() {
                 // this.style.cursor = 'not-allowed';
             }
         });
-        
-        step.addEventListener('mouseleave', function() {
+
+        step.addEventListener('mouseleave', function () {
             this.style.transform = 'translateY(0)';
         });
     });
@@ -264,7 +285,7 @@ function addProgressStepStyles() {
 function initializeHeader() {
     const mobileToggle = document.querySelector('.mobile-menu-toggle');
     const navLinks = document.querySelector('.nav-links');
-    
+
     if (mobileToggle && navLinks) {
         mobileToggle.addEventListener('click', () => {
             navLinks.classList.toggle('active');
@@ -316,13 +337,13 @@ function styleFileFields() {
     document.querySelectorAll('input[type="file"]').forEach(input => {
         const field = input.closest('.field');
         if (!field || field.classList.contains('styled-file-field')) return;
-        
+
         field.classList.add('styled-file-field');
-        
+
         // Create upload area wrapper
         const uploadArea = document.createElement('div');
         uploadArea.className = 'file-upload-area uploadfield-holder';
-        
+
         // Add upload icon
         const icon = document.createElement('div');
         icon.className = 'upload-icon';
@@ -333,7 +354,7 @@ function styleFileFields() {
                 <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
         `;
-        
+
         // Add text
         const text = document.createElement('div');
         text.className = 'upload-text';
@@ -341,21 +362,21 @@ function styleFileFields() {
             <p class="upload-title">Drop files here or click to upload</p>
             <p class="upload-description">Allowed file types: pdf, jpg, jpeg, png, doc, docx</p>
         `;
-        
+
         // File name display
         const fileName = document.createElement('div');
         fileName.className = 'file-name-display';
         fileName.style.display = 'none';
-        
+
         // Hide original input
         input.style.display = 'none';
-        
+
         // Build structure
         uploadArea.appendChild(icon);
         uploadArea.appendChild(text);
         uploadArea.appendChild(fileName);
         uploadArea.appendChild(input);
-        
+
         // Insert after label or at beginning of field
         const label = field.querySelector('label');
         if (label) {
@@ -363,16 +384,16 @@ function styleFileFields() {
         } else {
             field.insertBefore(uploadArea, field.firstChild);
         }
-        
+
         // Click to upload
         uploadArea.addEventListener('click', (e) => {
             if (e.target !== input) {
                 input.click();
             }
         });
-        
+
         // File change handler
-        input.addEventListener('change', function() {
+        input.addEventListener('change', function () {
             if (this.files.length > 0) {
                 const file = this.files[0];
                 fileName.innerHTML = `
@@ -386,7 +407,7 @@ function styleFileFields() {
                 fileName.style.display = 'flex';
                 icon.style.display = 'none';
                 text.style.display = 'none';
-                
+
                 // Validate file size
                 const maxSize = 10 * 1024 * 1024;
                 if (file.size > maxSize) {
@@ -402,21 +423,21 @@ function styleFileFields() {
                 text.style.display = 'block';
             }
         });
-        
+
         // Drag and drop handlers
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadArea.classList.add('drag-over');
         });
-        
+
         uploadArea.addEventListener('dragleave', () => {
             uploadArea.classList.remove('drag-over');
         });
-        
+
         uploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadArea.classList.remove('drag-over');
-            
+
             if (e.dataTransfer.files.length > 0) {
                 input.files = e.dataTransfer.files;
                 input.dispatchEvent(new Event('change', { bubbles: true }));
@@ -465,7 +486,7 @@ function styleMultiStepForm() {
     // Transaction type update
     const transactionTypeFields = form.querySelectorAll('input[name="TransactionType"]');
     transactionTypeFields.forEach(field => {
-        field.addEventListener('change', function() {
+        field.addEventListener('change', function () {
             updateRepresentingOptions(this.value);
         });
     });
@@ -494,19 +515,19 @@ function updateRepresentingOptions(transactionType) {
 // ===== CONDITIONAL FIELDS STEP 3 =====
 function handleConditionalFieldsStep3() {
     document.querySelectorAll('input[name^="ClientType_"]').forEach(field => {
-        field.addEventListener('change', function() {
+        field.addEventListener('change', function () {
             const index = this.name.split('_')[1];
             const actingTypeField = document.querySelector(`select[name="ClientActingType_${index}"]`);
             if (!actingTypeField) return;
 
             const individualOptions = [
-                '', 'Individual acting for himself', 
-                'Individual acting on behalf of another individual', 
+                '', 'Individual acting for himself',
+                'Individual acting on behalf of another individual',
                 'Individual acting on behalf of another (Entity/Legal arrangement)'
             ];
             const entityOptions = [
-                '', 'Entity acting for himself', 
-                'Entity acting on behalf of another individual', 
+                '', 'Entity acting for himself',
+                'Entity acting on behalf of another individual',
                 'Entity acting on behalf of another (Entity/Legal arrangement)'
             ];
 
@@ -529,7 +550,7 @@ function handleConditionalFieldsStep4() {
     const amlCompletedNo = document.getElementById('Form_MultiStepForm_AMLCompleted_Seller_0');
     const amlFileHolder = document.getElementById('Form_MultiStepForm_AMLFile_Seller_Holder');
     const existingAMLNotice = document.querySelector('#Form_MultiStepForm_AMLFile_Seller_Holder + .existing-file-info');
-    
+
     if (amlCompletedYes && amlCompletedNo) {
         function updateAMLFileVisibility() {
             const showAML = amlCompletedYes.checked;
@@ -546,7 +567,7 @@ function handleConditionalFieldsStep4() {
     const formBSection2No = document.getElementById('Form_MultiStepForm_FormBSection2_Seller_0');
     const formQCIDHolder = document.getElementById('Form_MultiStepForm_FormQCID_Seller_Holder');
     const existingFormQCIDNotice = document.querySelector('#Form_MultiStepForm_FormQCID_Seller_Holder + .existing-file-info');
-    
+
     if (formBSection2Yes && formBSection2No) {
         function updateFormQCIDVisibility() {
             const showFormQCID = formBSection2Yes.checked;
@@ -564,7 +585,7 @@ function handleConditionalFieldsStep4() {
     const ucpTypeHolder = document.getElementById('Form_MultiStepForm_UCPType_Seller_Holder');
     const ucpFormsHolder = document.getElementById('Form_MultiStepForm_UCPForms_Seller_Holder');
     const existingUCPNotice = document.querySelector('#Form_MultiStepForm_UCPForms_Seller_Holder + .existing-file-info');
-    
+
     if (otherPartyYes && otherPartyNo) {
         function updateUCPVisibility() {
             const showUCP = otherPartyYes.checked;
@@ -585,7 +606,7 @@ function handleConditionalFieldsStep4() {
     const eaApprovalHolder = document.getElementById('Form_MultiStepForm_EAApproval_Seller_Holder');
     const existingECDDNotice = document.querySelector('#Form_MultiStepForm_ECDDForm_Seller_Holder + .existing-file-info');
     const existingFormQCIBNotice = document.querySelector('#Form_MultiStepForm_FormQCIB_Seller_Holder + .existing-file-info');
-    
+
     if (ecddRequiredYes && ecddRequiredNo) {
         function updateECDDVisibility() {
             const showECDD = ecddRequiredYes.checked;
@@ -607,16 +628,16 @@ function handleConditionalFieldsStep5() {
     if (!form) return;
 
     const toggleFields = [
-        ['HasCEAAgreement','CEAAgreement'],
-        ['HasCobrokeAgreement','CobrokeAgreement'],
-        ['HasCommissionAgreement','CommissionAgreement'],
-        ['HasHDBApproval','HDBApproval'],
-        ['HasOtherDocuments','OtherDocumentsDescription','OtherDocuments']
+        ['HasCEAAgreement', 'CEAAgreement'],
+        ['HasCobrokeAgreement', 'CobrokeAgreement'],
+        ['HasCommissionAgreement', 'CommissionAgreement'],
+        ['HasHDBApproval', 'HDBApproval'],
+        ['HasOtherDocuments', 'OtherDocumentsDescription', 'OtherDocuments']
     ];
 
     toggleFields.forEach(([trigger, ...targets]) => {
         form.querySelectorAll(`input[name="${trigger}"]`).forEach(field => {
-            field.addEventListener('change', function() {
+            field.addEventListener('change', function () {
                 targets.forEach(t => {
                     const fld = form.querySelector(`[name="${t}"], [id*="${t}"]`)?.closest('.field');
                     if (fld) fld.style.display = this.value === '1' ? 'block' : 'none';
@@ -639,7 +660,7 @@ function handleFileUploads() {
         const holder = field.querySelector('.uploadfield-holder');
         if (!input) return;
 
-        input.addEventListener('change', function() {
+        input.addEventListener('change', function () {
             const maxSize = 10 * 1024 * 1024;
             Array.from(this.files).forEach(file => {
                 if (file.size > maxSize) {
@@ -683,7 +704,7 @@ function updateProgressBar() {
 }
 
 // ===== ALERT SYSTEM =====
-function showAlert(message, type='info') {
+function showAlert(message, type = 'info') {
     document.querySelectorAll('.alert-floating').forEach(a => a.remove());
     const alert = document.createElement('div');
     alert.className = `alert alert-${type} alert-floating`;
@@ -691,7 +712,7 @@ function showAlert(message, type='info') {
     const icon = type === 'error' ? '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>' : '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>';
     alert.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${icon}</svg><span>${message}</span>`;
     document.body.appendChild(alert);
-    setTimeout(() => { alert.style.animation='slideOutRight .3s ease-out'; setTimeout(()=>alert.remove(),300); }, 5000);
+    setTimeout(() => { alert.style.animation = 'slideOutRight .3s ease-out'; setTimeout(() => alert.remove(), 300); }, 5000);
 }
 
 // ===== ANIMATION STYLES =====
@@ -743,11 +764,11 @@ function addBillingFormValidation() {
     const billingForm = document.querySelector('.billing-form');
     if (!billingForm) return;
 
-    billingForm.addEventListener('submit', function(e) {
+    billingForm.addEventListener('submit', function (e) {
         let isValid = true;
         const serialNumber = document.getElementById('Form_BillingForm_SerialNumber');
         const billingFile = document.getElementById('Form_BillingForm_BillingFile');
-        
+
         // Validate serial number
         if (!serialNumber.value.trim()) {
             isValid = false;
@@ -787,13 +808,13 @@ function addBillingFormValidation() {
 function showFieldError(field, message) {
     field.classList.add('error-field');
     field.style.borderColor = 'var(--error-color)';
-    
+
     // Remove existing error message
     const existingError = field.parentNode.querySelector('.field-error');
     if (existingError) {
         existingError.remove();
     }
-    
+
     // Add error message
     const errorDiv = document.createElement('div');
     errorDiv.className = 'field-error';
@@ -801,14 +822,14 @@ function showFieldError(field, message) {
     errorDiv.style.fontSize = '0.875rem';
     errorDiv.style.marginTop = '0.5rem';
     errorDiv.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ${message}`;
-    
+
     field.parentNode.appendChild(errorDiv);
 }
 
 function clearFieldError(field) {
     field.classList.remove('error-field');
     field.style.borderColor = '';
-    
+
     const existingError = field.parentNode.querySelector('.field-error');
     if (existingError) {
         existingError.remove();

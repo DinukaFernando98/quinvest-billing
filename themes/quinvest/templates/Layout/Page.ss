@@ -20,7 +20,7 @@
     <div class="hero-content">
         <div class="hero-text">
             <h1 class="hero-title">
-                <span class="title-word title-word-1">Form</span>
+                <span class="title-word title-word-1">Quinvest Form</span>
                 <span class="title-word title-word-2">Submissions</span>
             </h1>
             <p class="hero-subtitle">Complete your transaction documentation with our intuitive multistep form</p>
