@@ -16,98 +16,98 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Enhanced smooth scrolling
-(function () {
-    let isScrolling = false;
-    let scrollTarget = 0;
-    let initialized = false;
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+// (function () {
+//     let isScrolling = false;
+//     let scrollTarget = 0;
+//     let initialized = false;
+//     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-    function smoothScroll() {
-        const currentScroll = window.pageYOffset;
-        const distance = scrollTarget - currentScroll;
+//     function smoothScroll() {
+//         const currentScroll = window.pageYOffset;
+//         const distance = scrollTarget - currentScroll;
 
-        if (Math.abs(distance) > 1) {
-            window.scrollTo(0, currentScroll + distance * 0.1);
-            requestAnimationFrame(smoothScroll);
-        } else {
-            isScrolling = false;
-        }
-    }
+//         if (Math.abs(distance) > 1) {
+//             window.scrollTo(0, currentScroll + distance * 0.1);
+//             requestAnimationFrame(smoothScroll);
+//         } else {
+//             isScrolling = false;
+//         }
+//     }
 
-    // Initialize scroll target after page load and anchor jump
-    window.addEventListener('load', function () {
-        setTimeout(function () {
-            scrollTarget = window.pageYOffset;
-            initialized = true;
-        }, 100);
-    });
+//     // Initialize scroll target after page load and anchor jump
+//     window.addEventListener('load', function () {
+//         setTimeout(function () {
+//             scrollTarget = window.pageYOffset;
+//             initialized = true;
+//         }, 100);
+//     });
 
-    // Handle anchor clicks with smooth scroll (desktop only)
-    if (!isMobile) {
-        document.addEventListener('click', function (e) {
-            const link = e.target.closest('a[href*="#"]');
-            if (link) {
-                const href = link.getAttribute('href');
-                const hashIndex = href.indexOf('#');
-                if (hashIndex !== -1) {
-                    const hash = href.substring(hashIndex);
-                    const targetElement = document.querySelector(hash);
-                    if (targetElement) {
-                        e.preventDefault();
+//     // Handle anchor clicks with smooth scroll (desktop only)
+//     if (!isMobile) {
+//         document.addEventListener('click', function (e) {
+//             const link = e.target.closest('a[href*="#"]');
+//             if (link) {
+//                 const href = link.getAttribute('href');
+//                 const hashIndex = href.indexOf('#');
+//                 if (hashIndex !== -1) {
+//                     const hash = href.substring(hashIndex);
+//                     const targetElement = document.querySelector(hash);
+//                     if (targetElement) {
+//                         e.preventDefault();
 
-                        // Get target position
-                        const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
-                        scrollTarget = targetPosition;
+//                         // Get target position
+//                         const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
+//                         scrollTarget = targetPosition;
 
-                        // Start smooth scroll
-                        if (!isScrolling) {
-                            isScrolling = true;
-                            requestAnimationFrame(smoothScroll);
-                        }
+//                         // Start smooth scroll
+//                         if (!isScrolling) {
+//                             isScrolling = true;
+//                             requestAnimationFrame(smoothScroll);
+//                         }
 
-                        // Update URL hash
-                        if (href.indexOf('?') === -1) {
-                            history.pushState(null, null, hash);
-                        } else {
-                            window.location.href = href;
-                        }
-                    }
-                }
-            }
-        });
-    } else {
-        // Mobile: update scrollTarget after native anchor navigation
-        document.addEventListener('click', function (e) {
-            const link = e.target.closest('a[href*="#"]');
-            if (link) {
-                const href = link.getAttribute('href');
-                const hashIndex = href.indexOf('#');
-                if (hashIndex !== -1) {
-                    const hash = href.substring(hashIndex);
-                    const targetElement = document.querySelector(hash);
-                    if (targetElement) {
-                        setTimeout(function () {
-                            scrollTarget = window.pageYOffset;
-                        }, 100);
-                    }
-                }
-            }
-        });
-    }
+//                         // Update URL hash
+//                         if (href.indexOf('?') === -1) {
+//                             history.pushState(null, null, hash);
+//                         } else {
+//                             window.location.href = href;
+//                         }
+//                     }
+//                 }
+//             }
+//         });
+//     } else {
+//         // Mobile: update scrollTarget after native anchor navigation
+//         document.addEventListener('click', function (e) {
+//             const link = e.target.closest('a[href*="#"]');
+//             if (link) {
+//                 const href = link.getAttribute('href');
+//                 const hashIndex = href.indexOf('#');
+//                 if (hashIndex !== -1) {
+//                     const hash = href.substring(hashIndex);
+//                     const targetElement = document.querySelector(hash);
+//                     if (targetElement) {
+//                         setTimeout(function () {
+//                             scrollTarget = window.pageYOffset;
+//                         }, 100);
+//                     }
+//                 }
+//             }
+//         });
+//     }
 
-    window.addEventListener('wheel', function (e) {
-        if (!initialized) return;
+//     window.addEventListener('wheel', function (e) {
+//         if (!initialized) return;
 
-        e.preventDefault();
-        scrollTarget += e.deltaY;
-        scrollTarget = Math.max(0, Math.min(scrollTarget, document.documentElement.scrollHeight - window.innerHeight));
+//         e.preventDefault();
+//         scrollTarget += e.deltaY;
+//         scrollTarget = Math.max(0, Math.min(scrollTarget, document.documentElement.scrollHeight - window.innerHeight));
 
-        if (!isScrolling) {
-            isScrolling = true;
-            requestAnimationFrame(smoothScroll);
-        }
-    }, { passive: false });
-})();
+//         if (!isScrolling) {
+//             isScrolling = true;
+//             requestAnimationFrame(smoothScroll);
+//         }
+//     }, { passive: false });
+// })();
 
 // ===== STEP NAVIGATION =====
 function navigateToStep(targetStep) {
