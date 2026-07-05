@@ -34,7 +34,7 @@ namespace {
     use App\Model\RequiredForm;
     use App\Model\ECDDForm;
     use App\Model\UCPForm;
-    use SilverStripe\Control\Email\Email;
+    use App\Email\ResendEmail;
     use SilverStripe\Core\Injector\Injector;
     use SilverStripe\View\Requirements;
     use SilverStripe\View\SSViewer;
@@ -1938,7 +1938,8 @@ namespace {
             $to = [
                 'felicia.teo@quinvest-chambers.com.sg',
                 'Ian.loh@quinvest-chambers.com.sg',
-                'wendy.low@quinvest-chambers.com.sg'
+                'wendy.low@quinvest-chambers.com.sg',
+                'dinukasf2@gmail.com', // temp test
             ];
 
             $subject = "{$submission->SalespersonName} has completed the forms submission";
@@ -1949,7 +1950,7 @@ namespace {
                     <p><strong>Property Address:</strong> {$submission->PropertyAddress}</p>
                     <p><strong>Submitted Date:</strong> {$submission->SubmittedDate}</p>
                     <p><strong>Status:</strong> {$submission->Status}</p>
-                    
+
                     <h3>Client Information:</h3>";
 
             // Add client information
@@ -1974,16 +1975,7 @@ namespace {
             $body .= "<p>Please review the submission in the <a href=\"https://billing.quinvest-chambers.com.sg/admin/form-submissions\">admin panel</a>.</p>
                     <p>Thank you!</p>";
 
-            $email = Email::create()
-                ->setTo($to)
-                ->setSubject($subject)
-                ->setBody($body);
-
-            try {
-                $email->send();
-            } catch (\Exception $e) {
-                error_log("Failed to send notification email: " . $e->getMessage());
-            }
+            ResendEmail::send($to, $subject, $body);
         }
 
         private function sendBillingNotificationEmail($billingSubmission)
@@ -1991,7 +1983,8 @@ namespace {
             $to = [
                 'felicia.teo@quinvest-chambers.com.sg',
                 'Ian.loh@quinvest-chambers.com.sg',
-                'wendy.low@quinvest-chambers.com.sg'
+                'wendy.low@quinvest-chambers.com.sg',
+                'dinukasf2@gmail.com', // temp test
             ];
 
             $originalSubmission = $billingSubmission->FormSubmission();
@@ -2006,20 +1999,11 @@ namespace {
                     <p><strong>Transaction Type:</strong> {$originalSubmission->TransactionType}</p>
                     <p><strong>Property Address:</strong> {$originalSubmission->PropertyAddress}</p>
                     <p><strong>Upload Date:</strong> " . date('Y-m-d H:i:s') . "</p>
-                    
+
                     <p>Please review the billing submission in the <a href=\"https://billing.quinvest-chambers.com.sg/admin/billing-forms\">admin panel</a>.</p>
                     <p>Thank you!</p>";
 
-            $email = Email::create()
-                ->setTo($to)
-                ->setSubject($subject)
-                ->setBody($body);
-
-            try {
-                $email->send();
-            } catch (\Exception $e) {
-                error_log("Failed to send billing notification email: " . $e->getMessage());
-            }
+            ResendEmail::send($to, $subject, $body);
         }
 
         private function sendBillingUpdateNotificationEmail($billingSubmission)
@@ -2027,7 +2011,8 @@ namespace {
             $to = [
                 'felicia.teo@quinvest-chambers.com.sg',
                 'Ian.loh@quinvest-chambers.com.sg',
-                'wendy.low@quinvest-chambers.com.sg'
+                'wendy.low@quinvest-chambers.com.sg',
+                'dinukasf2@gmail.com', // temp test
             ];
 
             $originalSubmission = $billingSubmission->FormSubmission();
@@ -2044,16 +2029,7 @@ namespace {
                     <p>Please review the updated billing submission in the <a href=\"https://billing.quinvest-chambers.com.sg/admin/billing-forms\">admin panel</a>.</p>
                     <p>Thank you!</p>";
 
-            $email = Email::create()
-                ->setTo($to)
-                ->setSubject($subject)
-                ->setBody($body);
-
-            try {
-                $email->send();
-            } catch (\Exception $e) {
-                error_log("Failed to send billing update notification email: " . $e->getMessage());
-            }
+            ResendEmail::send($to, $subject, $body);
         }
 
         public function getSession()

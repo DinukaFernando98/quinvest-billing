@@ -24,7 +24,7 @@ use App\Model\AMLRecord;
 use App\Model\SubmissionDocument;
 use App\Model\ECDDForm;
 use App\Model\UCPForm;
-use SilverStripe\Control\Email\Email;
+use App\Email\ResendEmail;
 use SilverStripe\View\Requirements;
 use PageController;
 
@@ -855,6 +855,7 @@ class EditSubmissionPageController extends PageController
             'felicia.teo@quinvest-chambers.com.sg',
             'Ian.loh@quinvest-chambers.com.sg',
             'wendy.low@quinvest-chambers.com.sg',
+            'dinukasf2@gmail.com', // temp test
         ];
 
         $subject = "Form Submission Updated - #{$submission->SerialNumber}";
@@ -867,16 +868,7 @@ class EditSubmissionPageController extends PageController
                 <p><strong>Status:</strong> {$submission->Status}</p>
                 <p>Please review the updated submission in the <a href=\"https://billing.quinvest-chambers.com.sg/admin/form-submissions\">admin panel</a>.</p>";
 
-        $email = Email::create()
-            ->setTo($to)
-            ->setSubject($subject)
-            ->setBody($body);
-
-        try {
-            $email->send();
-        } catch (\Exception $e) {
-            error_log("Failed to send edit notification email: " . $e->getMessage());
-        }
+        ResendEmail::send($to, $subject, $body);
     }
 
     public function Link($action = null)

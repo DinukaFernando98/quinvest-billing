@@ -23,7 +23,7 @@ use SilverStripe\View\SSViewer;
 use App\Model\FormSubmission;
 use SilverStripe\Assets\File;
 use SilverStripe\Assets\Upload;
-use SilverStripe\Control\Email\Email;
+use App\Email\ResendEmail;
 use SilverStripe\Forms\Form;
 
 class SubmissionDetailPageController extends PageController
@@ -427,9 +427,10 @@ class SubmissionDetailPageController extends PageController
         $to = [
             'felicia.teo@quinvest-chambers.com.sg',
             'Ian.loh@quinvest-chambers.com.sg',
-            'wendy.low@quinvest-chambers.com.sg'
+            'wendy.low@quinvest-chambers.com.sg',
+            'dinukasf2@gmail.com',
         ];
-        
+
         $subject = "New Form Submission - {$submission->SerialNumber}";
         $body = "<p>A new form has been submitted for review.</p>
                 <p><strong>Serial Number:</strong> {$submission->SerialNumber}</p>
@@ -439,30 +440,21 @@ class SubmissionDetailPageController extends PageController
                 <p><strong>Transaction Type:</strong> {$submission->TransactionType}</p>
                 <p><strong>Submitted Date:</strong> {$submission->SubmittedDate}</p>
                 <p>Please review the submission in the <a href=\"https://billing.quinvest-chambers.com.sg/admin/form-submissions/EditForm/field/FormSubmission/item/{$submission->ID}/edit\">admin panel</a>.</p>";
-        
-        $email = Email::create()
-            ->setTo($to)
-            ->setSubject($subject)
-            ->setBody($body);
-        
-        try {
-            $email->send();
-        } catch (\Exception $e) {
-            error_log("Failed to send submission email: " . $e->getMessage());
-        }
+
+        ResendEmail::send($to, $subject, $body);
     }
     
     private function sendUpdateEmail($submission, $member)
     {
-        // Send to admin
         $adminTo = [
             'felicia.teo@quinvest-chambers.com.sg',
             'Ian.loh@quinvest-chambers.com.sg',
-            'wendy.low@quinvest-chambers.com.sg'
+            'wendy.low@quinvest-chambers.com.sg',
+            'dinukasf2@gmail.com',
         ];
-        
+
         $subject = "Form Submission Updated - {$submission->SerialNumber}";
-        $body = "<p>The following form submission has been updated:</p>
+        $adminBody = "<p>The following form submission has been updated:</p>
                 <p><strong>Serial Number:</strong> {$submission->SerialNumber}</p>
                 <p><strong>Salesperson:</strong> {$submission->SalespersonName}</p>
                 <p><strong>RES Number:</strong> {$submission->RESNumber}</p>
@@ -470,13 +462,7 @@ class SubmissionDetailPageController extends PageController
                 <p><strong>Updated Date:</strong> " . date('Y-m-d H:i:s') . "</p>
                 <p><strong>Status:</strong> {$submission->Status}</p>
                 <p>Please review the updated submission in the <a href=\"https://billing.quinvest-chambers.com.sg/admin/form-submissions/EditForm/field/FormSubmission/item/{$submission->ID}/edit\">admin panel</a>.</p>";
-        
-        $adminEmail = Email::create()
-            ->setTo($adminTo)
-            ->setSubject($subject)
-            ->setBody($body);
-        
-        // Send to user
+
         $userSubject = "Your Form Submission Has Been Updated - {$submission->SerialNumber}";
         $userBody = "<p>Dear {$member->FirstName},</p>
                     <p>Your form submission has been successfully updated.</p>
@@ -488,18 +474,9 @@ class SubmissionDetailPageController extends PageController
                     <p><strong>Updated:</strong> " . date('Y-m-d H:i:s') . "</p>
                     <p>You can view your submission at any time by visiting your <a href=\"https://billing.quinvest-chambers.com.sg/dashboard\">dashboard</a>.</p>
                     <p>Thank you,<br>Quinvest Chambers</p>";
-        
-        $userEmail = Email::create()
-            ->setTo($member->Email)
-            ->setSubject($userSubject)
-            ->setBody($userBody);
-        
-        try {
-            $adminEmail->send();
-            $userEmail->send();
-        } catch (\Exception $e) {
-            error_log("Failed to send update emails: " . $e->getMessage());
-        }
+
+        ResendEmail::send($adminTo, $subject, $adminBody);
+        ResendEmail::send($member->Email, $userSubject, $userBody);
     }
     
     public function cancel($data, $form)
