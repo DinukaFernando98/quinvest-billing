@@ -19,10 +19,20 @@ class ClientInfo extends DataObject
     private static $has_one = [
         'FormSubmission' => FormSubmission::class,
         'OwnershipProof' => File::class,
+        'FormA1File'     => File::class,
+        'FormA2File'     => File::class,
+        'FormA3File'     => File::class,
+        'FormA4File'     => File::class,
+        'FormBFile'      => File::class,
     ];
-    
+
     private static $owns = [
         'OwnershipProof',
+        'FormA1File',
+        'FormA2File',
+        'FormA3File',
+        'FormA4File',
+        'FormBFile',
     ];
     
     private static $summary_fields = [

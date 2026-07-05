@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -l app/src/PageController.php)",
+      "Bash(php -l app/src/controllers/EditSubmissionPageController.php)",
+      "PowerShell(php -l \"app\\\\src\\\\PageController.php\")",
+      "PowerShell(php -l \"app\\\\src\\\\controllers\\\\EditSubmissionPageController.php\")",
+      "Bash(find / -iname \"php.exe\" 2>/dev/null | head -5; find / -iname \"php\" -type f 2>/dev/null | head -5)",
+      "Read(//d//**)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Aspect Projects\\\\quinvest-billing\" -Recurse -Name -Attributes D)",
+      "Bash(Select-Object -First 20)"
+    ]
+  }
+}

@@ -113,8 +113,6 @@ document.addEventListener('DOMContentLoaded', () => {
 function navigateToStep(targetStep) {
     const currentStep = parseInt(document.querySelector('.form-step')?.getAttribute('data-step') || 1);
 
-    console.log(`Navigating from step ${currentStep} to step ${targetStep}`);
-
     // If going to a previous step, navigate directly (no validation needed)
     if (targetStep < currentStep) {
         redirectToStep(targetStep);
@@ -133,34 +131,11 @@ function navigateToStep(targetStep) {
         }
         return;
     }
-
-    // If jumping ahead more than one step, check if we're past step 1
-    // Once step 1 is completed, allow navigation to any step
-    if (targetStep > currentStep + 1) {
-        // Check if we have at least completed step 1
-        const step1Completed = checkStep1Completion();
-        if (step1Completed) {
-            // Allow jumping to any step if step 1 is completed
-            redirectToStep(targetStep);
-        } else {
-            showAlert('Please complete Step 1 first before jumping ahead', 'error');
-        }
-        return;
-    }
-}
-
-function checkStep1Completion() {
-    // Check if step 1 required fields are filled
-    const salespersonName = document.querySelector('input[name="SalespersonName"]')?.value;
-    const resNumber = document.querySelector('input[name="RESNumber"]')?.value;
-
-    return salespersonName && salespersonName.trim() && resNumber && resNumber.trim();
 }
 
 function redirectToStep(step) {
     const currentUrl = window.location.href.split('?')[0];
-    const newUrl = `${currentUrl}?step=${step}#form-start`;
-    console.log('Redirecting to:', newUrl);
+    const newUrl = `${currentUrl}?step=${step}`;
     window.location.href = newUrl;
 }
 
@@ -210,7 +185,6 @@ function setupProgressBarInteractions() {
             e.stopPropagation();
 
             const targetStep = parseInt(progressStep.getAttribute('data-step'));
-            console.log('Progress step clicked:', targetStep);
             navigateToStep(targetStep);
         }
     });
@@ -491,22 +465,34 @@ function styleMultiStepForm() {
         });
     });
 
+    // Apply initial state if TransactionType already has a value (e.g. returning to step 2)
+    const checkedTransactionType = form.querySelector('input[name="TransactionType"]:checked');
+    if (checkedTransactionType) {
+        updateRepresentingOptions(checkedTransactionType.value);
+    }
+
     // Smooth scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ===== UPDATE REPRESENTING OPTIONS STEP 2 =====
 function updateRepresentingOptions(transactionType) {
-    const checkboxSet = document.querySelector('.checkboxset');
-    if (!checkboxSet) return;
+    // Target the Representing field's optionset specifically, not the first .optionset on the page
+    const firstRepresentingInput = document.querySelector('input[name="Representing"]');
+    if (!firstRepresentingInput) return;
+    const optionSet = firstRepresentingInput.closest('ul');
+    if (!optionSet) return;
 
-    checkboxSet.querySelectorAll('li').forEach(li => {
+    optionSet.querySelectorAll('li').forEach(li => {
         const input = li.querySelector('input');
+        if (!input) return;
         const value = input.value;
         if (transactionType === 'Sale') {
-            li.style.display = (value === 'Seller' || value === 'Buyer') ? 'flex' : 'none';
+            li.style.display = (value === 'Seller' || value === 'Buyer') ? '' : 'none';
         } else if (transactionType === 'Lease') {
-            li.style.display = (value === 'Landlord' || value === 'Tenant') ? 'flex' : 'none';
+            li.style.display = (value === 'Landlord' || value === 'Tenant') ? '' : 'none';
+        } else {
+            li.style.display = '';
         }
         if (li.style.display === 'none') input.checked = false;
     });
@@ -516,9 +502,9 @@ function updateRepresentingOptions(transactionType) {
 function handleConditionalFieldsStep3() {
     document.querySelectorAll('input[name^="ClientType_"]').forEach(field => {
         field.addEventListener('change', function () {
-            const index = this.name.split('_')[1];
-            const actingTypeField = document.querySelector(`select[name="ClientActingType_${index}"]`);
-            if (!actingTypeField) return;
+            const party = this.name.replace('ClientType_', '');
+            const actingTypeSelect = document.querySelector(`select[name="ClientActingType_${party}"]`);
+            if (!actingTypeSelect) return;
 
             const individualOptions = [
                 '', 'Individual acting for himself',
@@ -531,95 +517,200 @@ function handleConditionalFieldsStep3() {
                 'Entity acting on behalf of another (Entity/Legal arrangement)'
             ];
 
-            actingTypeField.innerHTML = '';
+            actingTypeSelect.innerHTML = '';
             const options = this.value === 'Individual' ? individualOptions : entityOptions;
             options.forEach(opt => {
                 const option = document.createElement('option');
                 option.value = opt;
                 option.textContent = opt || '-- Select --';
-                actingTypeField.appendChild(option);
+                actingTypeSelect.appendChild(option);
             });
+
+            updateFormFilesForParty(party, '');
         });
     });
+
+    document.querySelectorAll('select[name^="ClientActingType_"]').forEach(select => {
+        const party = select.name.replace('ClientActingType_', '');
+        select.addEventListener('change', function () {
+            updateFormFilesForParty(party, this.value);
+        });
+        updateFormFilesForParty(party, select.value);
+    });
+}
+
+function updateFormFilesForParty(party, actingType) {
+    function fieldOf(name) {
+        const el = document.querySelector(`[name="${name}"]`);
+        return el ? el.closest('.field') : null;
+    }
+
+    const a1 = fieldOf(`FormA1File_${party}`);
+    const a2 = fieldOf(`FormA2File_${party}`);
+    const a3 = fieldOf(`FormA3File_${party}`);
+    const a4 = fieldOf(`FormA4File_${party}`);
+    const b  = fieldOf(`FormBFile_${party}`);
+
+    const showA1 = actingType.startsWith('Individual');
+    const showA2 = actingType.startsWith('Entity');
+    const showA3 = actingType.includes('behalf of another individual');
+    const showA4 = actingType.includes('behalf of another (Entity');
+
+    if (a1) a1.style.display = showA1 ? '' : 'none';
+    if (a2) a2.style.display = showA2 ? '' : 'none';
+    if (a3) a3.style.display = showA3 ? '' : 'none';
+    if (a4) a4.style.display = showA4 ? '' : 'none';
+    if (b)  b.style.display  = actingType ? '' : 'none';
 }
 
 // ===== CONDITIONAL FIELDS STEP 4 =====
 function handleConditionalFieldsStep4() {
-    // AML Search toggle
-    const amlCompletedYes = document.getElementById('Form_MultiStepForm_AMLCompleted_Seller_1');
-    const amlCompletedNo = document.getElementById('Form_MultiStepForm_AMLCompleted_Seller_0');
-    const amlFileHolder = document.getElementById('Form_MultiStepForm_AMLFile_Seller_Holder');
-    const existingAMLNotice = document.querySelector('#Form_MultiStepForm_AMLFile_Seller_Holder + .existing-file-info');
-
-    if (amlCompletedYes && amlCompletedNo) {
-        function updateAMLFileVisibility() {
-            const showAML = amlCompletedYes.checked;
-            if (amlFileHolder) amlFileHolder.style.display = showAML ? 'block' : 'none';
-            if (existingAMLNotice) existingAMLNotice.style.display = showAML ? 'block' : 'none';
+    const seen = new Set();
+    document.querySelectorAll('input[name^="AMLCompleted_"]').forEach(function (input) {
+        const i = input.name.replace('AMLCompleted_', '');
+        if (!seen.has(i)) {
+            seen.add(i);
+            setupAMLSection(i);
         }
-        updateAMLFileVisibility();
-        amlCompletedYes.addEventListener('change', updateAMLFileVisibility);
-        amlCompletedNo.addEventListener('change', updateAMLFileVisibility);
+    });
+}
+
+function setupAMLSection(i) {
+    function fieldOf(name) {
+        const el = document.querySelector(`[name="${name}"]`);
+        return el ? el.closest('.field') : null;
+    }
+    function show(el) { if (el) el.style.display = ''; }
+    function hide(el) { if (el) el.style.display = 'none'; }
+
+    const amlYes = document.querySelector(`input[name="AMLCompleted_${i}"][value="1"]`);
+    const amlNo  = document.querySelector(`input[name="AMLCompleted_${i}"][value="0"]`);
+
+    const amlFileField       = fieldOf(`AMLFile_${i}`);
+    const formBSection2Field = fieldOf(`FormBSection2_${i}`);
+    const formQCIDField      = fieldOf(`FormQCID_${i}`);
+    const otherPartyField    = fieldOf(`OtherPartyRepresented_${i}`);
+    const ucpTypeField       = fieldOf(`UCPType_${i}`);
+    const ucpActingTypeField = fieldOf(`UCPActingType_${i}`);
+    const ucpFormsField      = fieldOf(`UCPForms_${i}`);
+    const ecddRequiredField  = fieldOf(`ECDDRequired_${i}`);
+    const ecddFormField      = fieldOf(`ECDDForm_${i}`);
+    const formQCIBField      = fieldOf(`FormQCIB_${i}`);
+    const eaApprovalField    = fieldOf(`EAApproval_${i}`);
+
+    let amlNotice = document.getElementById(`aml-notice-${i}`);
+    if (!amlNotice) {
+        amlNotice = document.createElement('div');
+        amlNotice.id = `aml-notice-${i}`;
+        amlNotice.className = 'alert alert-warning';
+        amlNotice.style.marginTop = '8px';
+        amlNotice.textContent = 'Please complete an AML search before proceeding.';
+        const amlCompletedField = fieldOf(`AMLCompleted_${i}`);
+        if (amlCompletedField) amlCompletedField.after(amlNotice);
     }
 
-    // Form B Section 2 toggle
-    const formBSection2Yes = document.getElementById('Form_MultiStepForm_FormBSection2_Seller_1');
-    const formBSection2No = document.getElementById('Form_MultiStepForm_FormBSection2_Seller_0');
-    const formQCIDHolder = document.getElementById('Form_MultiStepForm_FormQCID_Seller_Holder');
-    const existingFormQCIDNotice = document.querySelector('#Form_MultiStepForm_FormQCID_Seller_Holder + .existing-file-info');
-
-    if (formBSection2Yes && formBSection2No) {
-        function updateFormQCIDVisibility() {
-            const showFormQCID = formBSection2Yes.checked;
-            if (formQCIDHolder) formQCIDHolder.style.display = showFormQCID ? 'block' : 'none';
-            if (existingFormQCIDNotice) existingFormQCIDNotice.style.display = showFormQCID ? 'block' : 'none';
-        }
-        updateFormQCIDVisibility();
-        formBSection2Yes.addEventListener('change', updateFormQCIDVisibility);
-        formBSection2No.addEventListener('change', updateFormQCIDVisibility);
+    let strNotice = document.getElementById(`str-notice-${i}`);
+    if (!strNotice) {
+        strNotice = document.createElement('div');
+        strNotice.id = `str-notice-${i}`;
+        strNotice.className = 'alert alert-info';
+        strNotice.style.marginTop = '8px';
+        strNotice.textContent = 'Please file a Suspicious Transaction Report (STR) separately.';
+        if (formBSection2Field) formBSection2Field.after(strNotice);
     }
 
-    // Other Party Represented toggle
-    const otherPartyYes = document.getElementById('Form_MultiStepForm_OtherPartyRepresented_Seller_1');
-    const otherPartyNo = document.getElementById('Form_MultiStepForm_OtherPartyRepresented_Seller_0');
-    const ucpTypeHolder = document.getElementById('Form_MultiStepForm_UCPType_Seller_Holder');
-    const ucpFormsHolder = document.getElementById('Form_MultiStepForm_UCPForms_Seller_Holder');
-    const existingUCPNotice = document.querySelector('#Form_MultiStepForm_UCPForms_Seller_Holder + .existing-file-info');
+    function updateAll() {
+        const amlDone = amlYes && amlYes.checked;
 
-    if (otherPartyYes && otherPartyNo) {
-        function updateUCPVisibility() {
-            const showUCP = otherPartyYes.checked;
-            if (ucpTypeHolder) ucpTypeHolder.style.display = showUCP ? 'block' : 'none';
-            if (ucpFormsHolder) ucpFormsHolder.style.display = showUCP ? 'block' : 'none';
-            if (existingUCPNotice) existingUCPNotice.style.display = showUCP ? 'block' : 'none';
+        if (!amlDone) {
+            hide(amlFileField); hide(formBSection2Field); hide(formQCIDField);
+            hide(otherPartyField); hide(ucpTypeField); hide(ucpActingTypeField);
+            hide(ucpFormsField); hide(ecddRequiredField); hide(ecddFormField);
+            hide(formQCIBField); hide(eaApprovalField); hide(strNotice);
+            show(amlNotice);
+            return;
         }
-        updateUCPVisibility();
-        otherPartyYes.addEventListener('change', updateUCPVisibility);
-        otherPartyNo.addEventListener('change', updateUCPVisibility);
+
+        hide(amlNotice);
+        show(amlFileField);
+        show(formBSection2Field);
+
+        const formBYes = document.querySelector(`input[name="FormBSection2_${i}"][value="1"]`);
+        if (formBYes && formBYes.checked) {
+            show(formQCIDField);
+            show(strNotice);
+        } else {
+            hide(formQCIDField);
+            hide(strNotice);
+        }
+
+        show(otherPartyField);
+
+        const otherPartyYes = document.querySelector(`input[name="OtherPartyRepresented_${i}"][value="1"]`);
+        if (otherPartyYes && otherPartyYes.checked) {
+            hide(ucpTypeField); hide(ucpActingTypeField); hide(ucpFormsField);
+        } else {
+            show(ucpTypeField); show(ucpActingTypeField); show(ucpFormsField);
+            updateUCPActingTypeOptions(i);
+        }
+
+        show(ecddRequiredField);
+
+        const ecddYes = document.querySelector(`input[name="ECDDRequired_${i}"][value="1"]`);
+        if (ecddYes && ecddYes.checked) {
+            show(ecddFormField); show(formQCIBField); show(eaApprovalField);
+        } else {
+            hide(ecddFormField); hide(formQCIBField); hide(eaApprovalField);
+        }
     }
 
-    // ECDD Required toggle
-    const ecddRequiredYes = document.getElementById('Form_MultiStepForm_ECDDRequired_Seller_1');
-    const ecddRequiredNo = document.getElementById('Form_MultiStepForm_ECDDRequired_Seller_0');
-    const ecddFormHolder = document.getElementById('Form_MultiStepForm_ECDDForm_Seller_Holder');
-    const formQCIBHolder = document.getElementById('Form_MultiStepForm_FormQCIB_Seller_Holder');
-    const eaApprovalHolder = document.getElementById('Form_MultiStepForm_EAApproval_Seller_Holder');
-    const existingECDDNotice = document.querySelector('#Form_MultiStepForm_ECDDForm_Seller_Holder + .existing-file-info');
-    const existingFormQCIBNotice = document.querySelector('#Form_MultiStepForm_FormQCIB_Seller_Holder + .existing-file-info');
+    [amlYes, amlNo].forEach(el => { if (el) el.addEventListener('change', updateAll); });
 
-    if (ecddRequiredYes && ecddRequiredNo) {
-        function updateECDDVisibility() {
-            const showECDD = ecddRequiredYes.checked;
-            if (ecddFormHolder) ecddFormHolder.style.display = showECDD ? 'block' : 'none';
-            if (formQCIBHolder) formQCIBHolder.style.display = showECDD ? 'block' : 'none';
-            if (eaApprovalHolder) eaApprovalHolder.style.display = showECDD ? 'block' : 'none';
-            if (existingECDDNotice) existingECDDNotice.style.display = showECDD ? 'block' : 'none';
-            if (existingFormQCIBNotice) existingFormQCIBNotice.style.display = showECDD ? 'block' : 'none';
-        }
-        updateECDDVisibility();
-        ecddRequiredYes.addEventListener('change', updateECDDVisibility);
-        ecddRequiredNo.addEventListener('change', updateECDDVisibility);
-    }
+    ['FormBSection2', 'OtherPartyRepresented', 'ECDDRequired'].forEach(field => {
+        document.querySelectorAll(`input[name="${field}_${i}"]`).forEach(el => {
+            el.addEventListener('change', updateAll);
+        });
+    });
+
+    document.querySelectorAll(`input[name="UCPType_${i}"]`).forEach(el => {
+        el.addEventListener('change', function () { updateUCPActingTypeOptions(i); });
+    });
+
+    updateAll();
+}
+
+function updateUCPActingTypeOptions(i) {
+    const checked = document.querySelector(`input[name="UCPType_${i}"]:checked`);
+    const select  = document.querySelector(`select[name="UCPActingType_${i}"]`);
+    if (!select) return;
+
+    const currentVal = select.value;
+
+    const individualOpts = [
+        ['', '-- Select type --'],
+        ['UCP (Individual) acting for himself', 'UCP (Individual) acting for himself'],
+        ['UCP (Individual) acting on behalf of another individual', 'UCP (Individual) acting on behalf of another individual'],
+        ['UCP (Individual) acting on behalf of another (Entity/Legal Arrangement)', 'UCP (Individual) acting on behalf of another (Entity/Legal Arrangement)'],
+    ];
+
+    const entityOpts = [
+        ['', '-- Select type --'],
+        ['UCP (Entity/Legal Arrangement) acting for himself', 'UCP (Entity/Legal Arrangement) acting for himself'],
+        ['UCP (Entity/Legal Arrangement) acting on behalf of another individual', 'UCP (Entity/Legal Arrangement) acting on behalf of another individual'],
+        ['UCP (Entity/Legal Arrangement) acting on behalf of another (Entity/Legal Arrangement)', 'UCP (Entity/Legal Arrangement) acting on behalf of another (Entity/Legal Arrangement)'],
+    ];
+
+    const opts = !checked ? [individualOpts[0], ...individualOpts.slice(1), ...entityOpts.slice(1)] :
+        checked.value === 'Individual' ? individualOpts : entityOpts;
+
+    select.innerHTML = '';
+    opts.forEach(([val, text]) => {
+        const opt = document.createElement('option');
+        opt.value = val;
+        opt.textContent = text;
+        if (val === currentVal) opt.selected = true;
+        select.appendChild(opt);
+    });
 }
 
 // ===== CONDITIONAL FIELDS STEP 5 =====
@@ -639,17 +730,31 @@ function handleConditionalFieldsStep5() {
         form.querySelectorAll(`input[name="${trigger}"]`).forEach(field => {
             field.addEventListener('change', function () {
                 targets.forEach(t => {
-                    const fld = form.querySelector(`[name="${t}"], [id*="${t}"]`)?.closest('.field');
-                    if (fld) fld.style.display = this.value === '1' ? 'block' : 'none';
+                    // Use name= only (not id*=) to avoid substring matches like HasCEA matching CEA
+                    const fld = form.querySelector(`[name="${t}"]`)?.closest('.field');
+                    if (fld) fld.style.display = this.value === '1' ? '' : 'none';
                 });
             });
         });
     });
 
-    // Hide by default
-    toggleFields.flat().forEach(f => {
-        const fld = form.querySelector(`[name="${f}"], [id*="${f}"]`)?.closest('.field');
-        if (fld) fld.style.display = 'none';
+    // Hide only target fields by default (not the trigger questions themselves)
+    toggleFields.forEach(([trigger, ...targets]) => {
+        targets.forEach(t => {
+            const fld = form.querySelector(`[name="${t}"]`)?.closest('.field');
+            if (fld) fld.style.display = 'none';
+        });
+    });
+
+    // Restore state if a value is already checked (e.g. page reload with saved data)
+    toggleFields.forEach(([trigger, ...targets]) => {
+        const checked = form.querySelector(`input[name="${trigger}"]:checked`);
+        if (checked) {
+            targets.forEach(t => {
+                const fld = form.querySelector(`[name="${t}"]`)?.closest('.field');
+                if (fld) fld.style.display = checked.value === '1' ? '' : 'none';
+            });
+        }
     });
 }
 
@@ -699,7 +804,7 @@ function trackFormStep() {
 function updateProgressBar() {
     const progressFill = document.getElementById('progressFill');
     const currentStep = parseInt(document.querySelector('.form-step')?.getAttribute('data-step') || 1);
-    const totalSteps = 6;
+    const totalSteps = 5;
     if (progressFill) progressFill.style.width = `${(currentStep / totalSteps) * 100}%`;
 }
 
