@@ -42,6 +42,7 @@ class BillingFormSubmission extends DataObject
         'FormSubmission.SerialNumber',
         'FormSubmission.SalespersonName',
         'UploadedBy.Email',
+        'Created',
     ];
     public function getCMSFields()
     {

@@ -15,8 +15,18 @@ class FormSubmissionAdmin extends ModelAdmin
     ];
     
     private static $url_segment = 'form-submissions';
-    
+
     private static $menu_title = 'Form Submissions';
-    
+
     private static $menu_icon_class = 'font-icon-p-alt';
+
+    private static $menu_priority = 90;
+
+    public function getList()
+    {
+        $list = parent::getList();
+        
+        // Only show submitted status records
+        return $list->filter(['Status' => 'Submitted']);
+    }
 }

@@ -1,0 +1,7 @@
+---
+Name: app_routes
+After: 'framework/routes#coreroutes'
+---
+SilverStripe\Control\Director:
+  rules:
+    'submission-details/$ID': 'App\Pages\SubmissionDetailPageController'

@@ -3,3 +3,22 @@ Name: myproject
 ---
 SilverStripe\Core\Manifest\ModuleManifest:
   project: app
+
+# Allow uploads up to 50MB
+SilverStripe\Assets\Upload_Validator:
+  allowed_max_file_size:
+    '*': 52428800
+
+# Admin menu tab order: Pages > Form Submissions > Billing Forms > Files > Security > Settings
+SilverStripe\CMS\Controllers\CMSPagesController:
+  menu_priority: 100
+App\Admin\FormSubmissionAdmin:
+  menu_priority: 80
+App\Admin\BillingAdmin:
+  menu_priority: 70
+SilverStripe\AssetAdmin\Controller\AssetAdmin:
+  menu_priority: 60
+SilverStripe\Admin\SecurityAdmin:
+  menu_priority: 50
+SilverStripe\SiteConfig\SiteConfigLeftAndMain:
+  menu_priority: 40

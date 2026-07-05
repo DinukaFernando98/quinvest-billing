@@ -5,6 +5,7 @@ namespace {
     use App\Model\BillingFormSubmission;
     use SilverStripe\CMS\Controllers\ContentController;
     use SilverStripe\Forms\RequiredFields;
+    use SilverStripe\ORM\ArrayList;
     use SilverStripe\Security\Security;
     use SilverStripe\Security\Member;
     use SilverStripe\Control\HTTPRequest;
@@ -21,6 +22,7 @@ namespace {
     use SilverStripe\Forms\FormAction;
     use SilverStripe\Forms\CompositeField;
     use SilverStripe\Forms\LiteralField;
+    use SilverStripe\Forms\PasswordField;
     use SilverStripe\AssetAdmin\Forms\UploadField;
     use SilverStripe\Assets\File;
     use SilverStripe\Assets\Upload;
@@ -33,6 +35,13 @@ namespace {
     use App\Model\ECDDForm;
     use App\Model\UCPForm;
     use SilverStripe\Control\Email\Email;
+    use SilverStripe\Core\Injector\Injector;
+    use SilverStripe\View\Requirements;
+    use SilverStripe\View\SSViewer;
+    use SilverStripe\View\ThemeResourceLoader;
+    use SilverStripe\Security\IdentityStore;
+    use SilverStripe\Security\PasswordValidator;
+    use SilverStripe\Security\MemberAuthenticator\MemberAuthenticator;
 
     /**
      * @template T of Page
@@ -42,24 +51,52 @@ namespace {
     {
         private static $allowed_actions = [
             'MultiStepForm',
+            'LoginForm',
+            'RegistrationForm',
+            'doLogin',
+            'doRegister',
+            'nextStep',
+            'previousStep',
+            'submitForm',
             'saveStep',
             'submitFinalForm',
             'logout',
             'BillingForm',
-            'submitBillingForm'
+            'submitBillingForm',
+            'updateBillingForm',
+            'dashboard',
+            'viewSubmission',
+            'downloadFile',
+            'getSubmissionDetail'
         ];
 
         protected function init()
         {
             parent::init();
 
+            $theme = SSViewer::get_themes();
+            $theme = reset($theme);
+
+            Requirements::css("public/resources/themes/quinvest/css/main.css");
+            Requirements::javascript("public/resources/themes/quinvest/js/main.js");
+
             // Handle step parameter from URL
             $step = $this->getRequest()->getVar('step');
             if ($step && is_numeric($step)) {
                 $step = (int)$step;
-                if ($step >= 1 && $step <= 6) {
+                if ($step >= 1 && $step <= 5) {
                     $this->getRequest()->getSession()->set('FormStep', $step);
                 }
+            }
+
+            // Require login to access the form submissions page
+            if ($this->IsFormPage() && !$this->IsLoggedIn()) {
+                return $this->redirect('/login');
+            }
+
+            // Logged-in users don't need the login page
+            if ($this->IsLoginPage() && $this->IsLoggedIn()) {
+                return $this->redirect('/form-submissions');
             }
         }
 
@@ -69,7 +106,9 @@ namespace {
             if ($member) {
                 Security::setCurrentUser(null);
             }
-            return $this->redirect('/Security/login');
+            $this->getRequest()->getSession()->clear('FormSubmissionID');
+            $this->getRequest()->getSession()->clear('FormStep');
+            return $this->redirect('/');
         }
 
         public function getCurrentMember()
@@ -79,7 +118,17 @@ namespace {
 
         public function IsFormPage()
         {
-            return $this->request->getURL() === 'form-submission';
+            return $this->request->getURL() === 'form-submissions';
+        }
+
+        public function IsLoginPage()
+        {
+            return $this->request->getURL() === 'login';
+        }
+
+        public function IsHomePage()
+        {
+            return $this->request->getURL() === '';
         }
 
         public function IsGuidelinesPage()
@@ -87,8 +136,206 @@ namespace {
             return $this->request->getURL() === 'guidelines';
         }
 
+        public function IsBillingPage()
+        {
+            return strpos($this->request->getURL(), 'billing') !== false;
+        }
+
+        public function IsDashboardPage()
+        {
+            $url = $this->request->getURL();
+            return strpos($url, 'dashboard') !== false
+                || strpos($url, 'edit-submission') !== false
+                || strpos($url, 'submission-details') !== false;
+        }
+
+        public function IsLoggedIn()
+        {
+            return Security::getCurrentUser() !== null;
+        }
+
+        /**
+         * Login Form
+         */
+        public function LoginForm()
+        {
+            $fields = FieldList::create(
+                TextField::create('RESNumber', 'RES Number')
+                    ->setAttribute('placeholder', 'Enter your RES number')
+                    ->setAttribute('autocomplete', 'username')
+                    ->addExtraClass('form-input')
+                    ->setAttribute('required', 'required'),
+
+                PasswordField::create('Password', 'Password')
+                    ->setAttribute('placeholder', 'Enter your password')
+                    ->setAttribute('autocomplete', 'current-password')
+                    ->addExtraClass('form-input')
+                    ->setAttribute('required', 'required')
+            );
+
+            $actions = FieldList::create(
+                FormAction::create('doLogin', 'Login')
+                    ->addExtraClass('btn btn-primary btn-block')
+                    ->setUseButtonTag(true)
+            );
+
+            $validator = RequiredFields::create('RESNumber', 'Password');
+
+            $form = Form::create($this, 'LoginForm', $fields, $actions, $validator);
+            $form->setFormMethod('POST');
+            $form->addExtraClass('login-form');
+
+            return $form;
+        }
+
+        /**
+         * Registration Form
+         */
+        public function RegistrationForm()
+        {
+            $fields = FieldList::create(
+                TextField::create('FirstName', 'First Name')
+                    ->setAttribute('placeholder', 'Enter your first name')
+                    ->addExtraClass('form-input')
+                    ->setAttribute('required', 'required'),
+
+                TextField::create('Surname', 'Last Name')
+                    ->setAttribute('placeholder', 'Enter your last name')
+                    ->addExtraClass('form-input')
+                    ->setAttribute('required', 'required'),
+
+                TextField::create('RESNumber', 'RES Number')
+                    ->setAttribute('placeholder', 'Enter your RES number')
+                    ->addExtraClass('form-input')
+                    ->setAttribute('required', 'required'),
+
+                PasswordField::create('Password', 'Password')
+                    ->setAttribute('placeholder', 'Enter your password (min 8 characters)')
+                    ->setAttribute('autocomplete', 'new-password')
+                    ->addExtraClass('form-input')
+                    ->setAttribute('required', 'required'),
+
+                PasswordField::create('ConfirmPassword', 'Confirm Password')
+                    ->setAttribute('placeholder', 'Confirm your password')
+                    ->setAttribute('autocomplete', 'new-password')
+                    ->addExtraClass('form-input')
+                    ->setAttribute('required', 'required')
+            );
+
+            $actions = FieldList::create(
+                FormAction::create('doRegister', 'Create Account')
+                    ->addExtraClass('btn btn-primary btn-block')
+                    ->setUseButtonTag(true)
+            );
+
+            $validator = RequiredFields::create('FirstName', 'Surname', 'RESNumber', 'Password', 'ConfirmPassword');
+
+            $form = Form::create($this, 'RegistrationForm', $fields, $actions, $validator);
+            $form->setFormMethod('POST');
+            $form->addExtraClass('registration-form');
+
+            return $form;
+        }
+
+        /**
+         * Handle Login
+         */
+        public function doLogin($data, $form)
+        {
+            // Find member by RES Number
+            $member = Member::get()->filter('RESNumber', $data['RESNumber'])->first();
+
+            if (!$member) {
+                $form->sessionMessage('*Invalid RES number or password, please try again!', 'bad');
+                return $this->redirectBack();
+            }
+
+            if (!password_verify($data['Password'], $member->Password)) {
+                $form->sessionMessage('*Invalid RES number or password, please try again!', 'bad');
+                return $this->redirectBack();
+            }
+
+            // Log in the member
+            $identityStore = Injector::inst()->get(IdentityStore::class);
+            $identityStore->logIn($member, false, $this->getRequest());
+
+            $form->sessionMessage('Login successful!', 'good');
+
+            // Redirect to the form submissions page, starting at step 1
+            $this->getRequest()->getSession()->set('FormStep', 1);
+            return $this->redirect('/form-submissions');
+        }
+
+        public function LogoutURL()
+        {
+            return Security::logout_url() . "&BackURL=/";
+        }
+
+        /**
+         * Handle Registration
+         */
+        public function doRegister($data, $form)
+        {
+            // Check if passwords match
+            if ($data['Password'] !== $data['ConfirmPassword']) {
+                $form->sessionMessage('Passwords do not match', 'bad');
+                return $this->redirectBack();
+            }
+
+            // Check password length
+            if (strlen($data['Password']) < 8) {
+                $form->sessionMessage('Password must be at least 8 characters long', 'bad');
+                return $this->redirectBack();
+            }
+
+            // Check if RES Number already exists
+            $existingMember = Member::get()->filter('RESNumber', $data['RESNumber'])->first();
+            if ($existingMember) {
+                $form->sessionMessage('A user with this RES Number already exists', 'bad');
+                return $this->redirectBack();
+            }
+
+            // Create new member
+            $member = Member::create();
+            $member->FirstName = $data['FirstName'];
+            $member->Surname = $data['Surname'];
+            $member->RESNumber = $data['RESNumber'];
+
+            // Set email as RES Number + domain (temporary, can be changed by admin)
+            $member->Email = $data['RESNumber'] . '@quinvest.com';
+
+            try {
+                $member->write();
+
+                // Set password (this will hash it automatically)
+                $member->changePassword($data['Password']);
+
+                // Log in the new member
+                $identityStore = Injector::inst()->get(IdentityStore::class);
+                $identityStore->logIn($member, false, $this->getRequest());
+
+                $this->getRequest()->getSession()->set('FormStep', 1);
+                return $this->redirect('/sign-up?registered=1');
+            } catch (ValidationException $e) {
+                $form->sessionMessage('Error creating account: ' . $e->getMessage(), 'bad');
+                return $this->redirectBack();
+            }
+        }
+
         public function BillingForm(): Form
         {
+            // Check whether we're editing an existing billing submission owned by this member
+            $existingBilling = null;
+            $editID = $this->getRequest()->getVar('edit');
+            if ($editID) {
+                $member = Security::getCurrentUser();
+                if ($member) {
+                    $existingBilling = BillingFormSubmission::get()
+                        ->filter(['ID' => $editID, 'UploadedByID' => $member->ID])
+                        ->first();
+                }
+            }
+
             $fields = FieldList::create(
                 TextField::create('SerialNumber', 'Serial Number')
                     ->setAttribute('placeholder', 'Enter your submission serial number')
@@ -100,8 +347,31 @@ namespace {
                     ->addExtraClass('form-input')
             );
 
+            $actionName = 'submitBillingForm';
+            $actionLabel = 'Submit Billing Form';
+
+            if ($existingBilling) {
+                $fields->dataFieldByName('SerialNumber')->setValue($existingBilling->SerialNumber);
+                $fields->dataFieldByName('BillingFile')
+                    ->setTitle('Replace Billing Form')
+                    ->setRightTitle('Leave empty to keep the currently uploaded file');
+
+                if ($existingBilling->BillingFile()->exists()) {
+                    $fields->insertBefore('BillingFile', LiteralField::create('ExistingBillingFile', sprintf(
+                        '<p class="existing-file-notice">Current file: <a href="%s" target="_blank">%s</a></p>',
+                        $existingBilling->BillingFile()->getURL(),
+                        $existingBilling->BillingFile()->Name
+                    )));
+                }
+
+                $fields->push(HiddenField::create('BillingSubmissionID', '', $existingBilling->ID));
+
+                $actionName = 'updateBillingForm';
+                $actionLabel = 'Update Billing Form';
+            }
+
             $actions = FieldList::create(
-                FormAction::create('submitBillingForm', 'Submit Billing Form')
+                FormAction::create($actionName, $actionLabel)
                     ->addExtraClass('btn btn-success')
                     ->setUseButtonTag(true)
             );
@@ -119,6 +389,9 @@ namespace {
 
         public function submitBillingForm($data, $form)
         {
+            ini_set('max_execution_time', 120);
+            ini_set('memory_limit', '256M');
+
             $serial = $data['SerialNumber'] ?? null;
 
             if (!$serial) {
@@ -126,27 +399,30 @@ namespace {
                 return $this->redirectBack();
             }
 
-            // Check if FormSubmission exists
             $submission = FormSubmission::get()->filter('SerialNumber', $serial)->first();
             if (!$submission) {
                 $form->sessionMessage("No matching form submission found for Serial Number: {$serial}", 'bad');
                 return $this->redirectBack();
             }
 
-            // Check if file was uploaded
+            $existingBilling = BillingFormSubmission::get()->filter('SerialNumber', $serial)->first();
+            if ($existingBilling) {
+                $form->sessionMessage("A billing form has already been submitted for Serial Number: {$serial}. Please use the Edit button from your dashboard to update it.", 'bad');
+                return $this->redirectBack();
+            }
+
             if (!isset($_FILES['BillingFile']) || empty($_FILES['BillingFile']['tmp_name'])) {
                 $form->sessionMessage('Please upload a billing file.', 'bad');
                 return $this->redirectBack();
             }
 
-            // Create BillingFormSubmission
             $billing = BillingFormSubmission::create();
             $billing->SerialNumber = $serial;
             $billing->FormSubmissionID = $submission->ID;
             $billing->UploadedByID = Security::getCurrentUser()->ID ?? 0;
 
-            // Handle file upload with FileField
             $upload = Upload::create();
+            $upload->getValidator()->setAllowedMaxFileSize(['*' => 52428800]);
 
             try {
                 $file = File::create();
@@ -164,8 +440,76 @@ namespace {
             }
 
             $billing->write();
+            $this->sendBillingNotificationEmail($billing);
 
             $form->sessionMessage('Billing form submitted successfully!', 'good');
+            return $this->redirectBack();
+        }
+
+        public function updateBillingForm($data, $form)
+        {
+            ini_set('max_execution_time', 120);
+            ini_set('memory_limit', '256M');
+
+            $member = Security::getCurrentUser();
+            if (!$member) {
+                return $this->redirect('/Security/login?BackURL=' . urlencode($this->getRequest()->getURL()));
+            }
+
+            $billingID = $data['BillingSubmissionID'] ?? null;
+            if (!$billingID) {
+                $form->sessionMessage('Billing submission not found.', 'bad');
+                return $this->redirectBack();
+            }
+
+            $billing = BillingFormSubmission::get()
+                ->filter(['ID' => $billingID, 'UploadedByID' => $member->ID])
+                ->first();
+
+            if (!$billing) {
+                $form->sessionMessage('Permission denied or billing submission not found.', 'bad');
+                return $this->redirectBack();
+            }
+
+            $serial = $data['SerialNumber'] ?? null;
+            if (!$serial) {
+                $form->sessionMessage('Please provide the serial number.', 'bad');
+                return $this->redirectBack();
+            }
+
+            $submission = FormSubmission::get()->filter('SerialNumber', $serial)->first();
+            if (!$submission) {
+                $form->sessionMessage("No matching form submission found for Serial Number: {$serial}", 'bad');
+                return $this->redirectBack();
+            }
+
+            $billing->SerialNumber = $serial;
+            $billing->FormSubmissionID = $submission->ID;
+
+            if (isset($_FILES['BillingFile']) && !empty($_FILES['BillingFile']['tmp_name'])) {
+                $upload = Upload::create();
+                $upload->getValidator()->setAllowedMaxFileSize(['*' => 52428800]);
+
+                try {
+                    $file = File::create();
+                    $upload->loadIntoFile($_FILES['BillingFile'], $file, 'billing-forms/');
+
+                    if ($file && $file->exists()) {
+                        $file->publishSingle();
+                        $billing->BillingFileID = $file->ID;
+                    } else {
+                        throw new \Exception('File upload failed');
+                    }
+                } catch (\Exception $e) {
+                    $form->sessionMessage('File upload failed: ' . $e->getMessage(), 'bad');
+                    return $this->redirectBack();
+                }
+            }
+
+            $billing->write();
+            $this->sendBillingUpdateNotificationEmail($billing);
+
+            $form->sessionMessage('Billing form updated successfully! Administrators have been notified.', 'good');
             return $this->redirectBack();
         }
 
@@ -178,11 +522,13 @@ namespace {
             if (!$submission) {
                 $submission = FormSubmission::create();
                 $submission->Status = 'Draft';
+                $currentMember = Security::getCurrentUser();
+                $submission->SalespersonName = $currentMember->FirstName . ' ' . $currentMember->Surname;
+                $submission->RESNumber = $currentMember->RESNumber;
                 $submission->write();
                 $this->getRequest()->getSession()->set('FormSubmissionID', $submission->ID);
             }
 
-            // Get current step from session or URL parameter
             $currentStep = $this->getRequest()->getSession()->get('FormStep') ?: 1;
 
             return $this->createStepForm($currentStep, $submission);
@@ -196,23 +542,13 @@ namespace {
 
             // Hidden field for step tracking
             $fields->push(HiddenField::create('CurrentStep', '', $step));
-            $fields->push(HiddenField::create('SubmissionID', '', $submission->ID));
+            if ($submission) {
+                $fields->push(HiddenField::create('SubmissionID', '', $submission->ID));
+            }
 
             switch ($step) {
                 case 1:
-                    $fields->push(TextField::create('SalespersonName', 'Name of Salesperson')
-                        ->setAttribute('placeholder', 'Enter salesperson name')
-                        ->setValue($submission->SalespersonName));
-
-                    $fields->push(TextField::create('RESNumber', 'RES Number')
-                        ->setAttribute('placeholder', 'Enter RES number')
-                        ->setValue($submission->RESNumber));
-
-                    $required = ['SalespersonName', 'RESNumber'];
-                    break;
-
-                case 2:
-                    $fields->push(TextareaField::create('PropertyAddress', 'Address of Property')
+                    $fields->push(TextareaField::create('PropertyAddress', 'Address of Property (Full address with postal code)')
                         ->setRows(3)
                         ->setValue($submission->PropertyAddress));
 
@@ -221,32 +557,33 @@ namespace {
                         'Lease' => 'Lease'
                     ])->setValue($submission->TransactionType));
 
-                    $fields->push(CheckboxSetField::create('Representing', 'Who are you representing?', [
+                    $representingArray = $submission->getRepresentingArray();
+                    $fields->push(OptionsetField::create('Representing', 'Who are you representing?', [
                         'Seller' => 'Seller',
                         'Buyer' => 'Buyer',
                         'Landlord' => 'Landlord',
                         'Tenant' => 'Tenant'
-                    ])->setValue($submission->getRepresentingArray()));
+                    ])->setValue($representingArray ? reset($representingArray) : null));
 
                     $required = ['PropertyAddress', 'TransactionType', 'Representing'];
                     break;
 
-                case 3:
+                case 2:
                     $fields = $this->buildStep3Fields($submission);
                     $required = $this->getStep3Required($submission);
                     break;
 
-                case 4:
+                case 3:
                     $fields = $this->buildStep4Fields($submission);
                     $required = $this->getStep4Required($submission);
                     break;
 
-                case 5:
+                case 4:
                     $fields = $this->buildStep5Fields($submission);
                     $required = $this->getStep5Required($submission);
                     break;
 
-                case 6:
+                case 5:
                     $fields = $this->buildStep6Fields($submission);
                     $required = [];
                     break;
@@ -259,11 +596,11 @@ namespace {
                     ->setUseButtonTag(true));
             }
 
-            if ($step < 6) {
+            if ($step < 5) {
                 $actions->push(FormAction::create('nextStep', 'Next')
                     ->addExtraClass('btn btn-primary')
                     ->setUseButtonTag(true));
-            } else {
+            } elseif ($step == 5) {
                 $actions->push(FormAction::create('submitForm', 'Submit Form')
                     ->addExtraClass('btn btn-success')
                     ->setUseButtonTag(true));
@@ -288,7 +625,7 @@ namespace {
         private function buildStep3Fields($submission)
         {
             $fields = FieldList::create();
-            $fields->push(HiddenField::create('CurrentStep', '', 3));
+            $fields->push(HiddenField::create('CurrentStep', '', 2));
             $fields->push(HiddenField::create('SubmissionID', '', $submission->ID));
 
             $representing = $submission->getRepresentingArray();
@@ -305,13 +642,15 @@ namespace {
                         $clientInfo->write();
                     }
 
-                    // Check if file already exists
-                    $existingFile = null;
-                    $existingFileName = '';
-                    if ($clientInfo->OwnershipProofID) {
-                        $existingFile = File::get()->byID($clientInfo->OwnershipProofID);
-                        if ($existingFile && $existingFile->exists()) {
-                            $existingFileName = $existingFile->Name;
+                    // Check which files already exist for this client
+                    $existingFileNames = [];
+                    foreach (['OwnershipProofID', 'FormA1FileID', 'FormA2FileID', 'FormA3FileID', 'FormA4FileID', 'FormBFileID'] as $idField) {
+                        $existingFileNames[$idField] = '';
+                        if ($clientInfo->{$idField}) {
+                            $existingFile = File::get()->byID($clientInfo->{$idField});
+                            if ($existingFile && $existingFile->exists()) {
+                                $existingFileNames[$idField] = $existingFile->Name;
+                            }
                         }
                     }
 
@@ -343,22 +682,90 @@ namespace {
                             'Entity acting on behalf of another (Entity/Legal arrangement)' => 'Entity acting on behalf of another (Entity/Legal arrangement)',
                         ])->setValue($clientInfo ? $clientInfo->ClientActingTypeSelection : null),
 
-                        $fileField,
+                        LiteralField::create("FormsHeader_{$party}",
+                            "<div class='required-forms-header'><strong>Required Forms (shown based on selection above):</strong></div>"
+                        ),
 
-                        HiddenField::create("PartyType_{$party}", '', $party),
-                        HiddenField::create("ClientInfoID_{$party}", '', $clientInfo->ID)
+                        FileField::create("FormA1File_{$party}", 'Form A1 — Customer Particulars Form (For Individual)')
+                            ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'),
                     ];
 
-                    // Add existing file info if file exists
-                    if ($existingFileName) {
+                    if ($existingFileNames['FormA1FileID']) {
                         $wrapperContent[] = LiteralField::create(
-                            "ExistingFile_{$party}",
+                            "ExistingFormA1File_{$party}",
                             "<div class='existing-file-info alert alert-info' style='margin-top: 10px; padding: 10px;'>
-                                <strong>Currently uploaded file:</strong> {$existingFileName}
+                                <strong>Currently uploaded file:</strong> {$existingFileNames['FormA1FileID']}
                                 <br><small>Upload a new file to replace the existing one.</small>
                             </div>"
                         );
                     }
+
+                    $wrapperContent[] = FileField::create("FormA2File_{$party}", 'Form A2 — Customer Particulars Form (For Entity/Legal Arrangement)')
+                        ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx');
+
+                    if ($existingFileNames['FormA2FileID']) {
+                        $wrapperContent[] = LiteralField::create(
+                            "ExistingFormA2File_{$party}",
+                            "<div class='existing-file-info alert alert-info' style='margin-top: 10px; padding: 10px;'>
+                                <strong>Currently uploaded file:</strong> {$existingFileNames['FormA2FileID']}
+                                <br><small>Upload a new file to replace the existing one.</small>
+                            </div>"
+                        );
+                    }
+
+                    $wrapperContent[] = FileField::create("FormA3File_{$party}", 'Form A3 — Particulars of Individual your Client is acting on behalf of')
+                        ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx');
+
+                    if ($existingFileNames['FormA3FileID']) {
+                        $wrapperContent[] = LiteralField::create(
+                            "ExistingFormA3File_{$party}",
+                            "<div class='existing-file-info alert alert-info' style='margin-top: 10px; padding: 10px;'>
+                                <strong>Currently uploaded file:</strong> {$existingFileNames['FormA3FileID']}
+                                <br><small>Upload a new file to replace the existing one.</small>
+                            </div>"
+                        );
+                    }
+
+                    $wrapperContent[] = FileField::create("FormA4File_{$party}", 'Form A4 — Particulars of Legal Person your Client is acting on behalf of')
+                        ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx');
+
+                    if ($existingFileNames['FormA4FileID']) {
+                        $wrapperContent[] = LiteralField::create(
+                            "ExistingFormA4File_{$party}",
+                            "<div class='existing-file-info alert alert-info' style='margin-top: 10px; padding: 10px;'>
+                                <strong>Currently uploaded file:</strong> {$existingFileNames['FormA4FileID']}
+                                <br><small>Upload a new file to replace the existing one.</small>
+                            </div>"
+                        );
+                    }
+
+                    $wrapperContent[] = FileField::create("FormBFile_{$party}", 'Form B — Risk Determination and Screening Checklist')
+                        ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx');
+
+                    if ($existingFileNames['FormBFileID']) {
+                        $wrapperContent[] = LiteralField::create(
+                            "ExistingFormBFile_{$party}",
+                            "<div class='existing-file-info alert alert-info' style='margin-top: 10px; padding: 10px;'>
+                                <strong>Currently uploaded file:</strong> {$existingFileNames['FormBFileID']}
+                                <br><small>Upload a new file to replace the existing one.</small>
+                            </div>"
+                        );
+                    }
+
+                    $wrapperContent[] = $fileField;
+
+                    if ($existingFileNames['OwnershipProofID']) {
+                        $wrapperContent[] = LiteralField::create(
+                            "ExistingFile_{$party}",
+                            "<div class='existing-file-info alert alert-info' style='margin-top: 10px; padding: 10px;'>
+                                <strong>Currently uploaded file:</strong> {$existingFileNames['OwnershipProofID']}
+                                <br><small>Upload a new file to replace the existing one.</small>
+                            </div>"
+                        );
+                    }
+
+                    $wrapperContent[] = HiddenField::create("PartyType_{$party}", '', $party);
+                    $wrapperContent[] = HiddenField::create("ClientInfoID_{$party}", '', $clientInfo->ID);
 
                     $wrapper = CompositeField::create($wrapperContent);
 
@@ -386,7 +793,7 @@ namespace {
         private function buildStep4Fields($submission)
         {
             $fields = FieldList::create();
-            $fields->push(HiddenField::create('CurrentStep', '', 4));
+            $fields->push(HiddenField::create('CurrentStep', '', 3));
             $fields->push(HiddenField::create('SubmissionID', '', $submission->ID));
 
             $representing = $submission->getRepresentingArray();
@@ -437,7 +844,7 @@ namespace {
                     ])->setValue($amlRecord ? (string)$amlRecord->AMLCompleted : null),
 
                     FileField::create("AMLFile_{$index}", 'Upload AML PDF file')
-                        
+
                         ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'),
                 ];
 
@@ -459,7 +866,7 @@ namespace {
                     ])->setValue($amlRecord ? (string)$amlRecord->FormBSection2Checked : null),
 
                     FileField::create("FormQCID_{$index}", 'Upload Form QCI-D')
-                        
+
                         ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'),
                 ]);
 
@@ -484,6 +891,16 @@ namespace {
                         'Individual' => 'Individual',
                         'Entity' => 'Entity'
                     ])->setValue($amlRecord ? $amlRecord->UCPType : null),
+
+                    DropdownField::create("UCPActingType_{$index}", 'Specific UCP type:', [
+                        '' => '-- Select type --',
+                        'UCP (Individual) acting for himself' => 'UCP (Individual) acting for himself',
+                        'UCP (Individual) acting on behalf of another individual' => 'UCP (Individual) acting on behalf of another individual',
+                        'UCP (Individual) acting on behalf of another (Entity/Legal Arrangement)' => 'UCP (Individual) acting on behalf of another (Entity/Legal Arrangement)',
+                        'UCP (Entity/Legal Arrangement) acting for himself' => 'UCP (Entity/Legal Arrangement) acting for himself',
+                        'UCP (Entity/Legal Arrangement) acting on behalf of another individual' => 'UCP (Entity/Legal Arrangement) acting on behalf of another individual',
+                        'UCP (Entity/Legal Arrangement) acting on behalf of another (Entity/Legal Arrangement)' => 'UCP (Entity/Legal Arrangement) acting on behalf of another (Entity/Legal Arrangement)',
+                    ])->setValue($amlRecord ? $amlRecord->UCPActingType : null),
 
                     FileField::create("UCPForms_{$index}", 'Upload UCP Forms')
                         ->setDescription('Multiple files allowed')
@@ -517,7 +934,7 @@ namespace {
                     ])->setValue($amlRecord ? (string)$amlRecord->ECDDRequired : null),
 
                     FileField::create("ECDDForm_{$index}", 'Upload ECDD Form')
-                        
+
                         ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'),
                 ]);
 
@@ -560,7 +977,7 @@ namespace {
 
                 $wrapperContent = array_merge($wrapperContent, [
                     FileField::create("FormQCIB_{$index}", 'Upload Form QCI-B')
-                        
+
                         ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'),
                 ]);
 
@@ -596,7 +1013,7 @@ namespace {
         private function buildStep5Fields($submission)
         {
             $fields = FieldList::create();
-            $fields->push(HiddenField::create('CurrentStep', '', 5));
+            $fields->push(HiddenField::create('CurrentStep', '', 4));
             $fields->push(HiddenField::create('SubmissionID', '', $submission->ID));
 
             $transactionType = $submission->TransactionType;
@@ -614,7 +1031,7 @@ namespace {
             if ($transactionType === 'Sale') {
                 $existingOptionToPurchase = $existingDocsByType['Option To Purchase / Sales Agreement'] ?? [];
                 $fields->push(FileField::create('OptionToPurchase', 'Option To Purchase / Sales Agreement')
-                    
+
                     ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
                 // Show existing file info
@@ -638,7 +1055,7 @@ namespace {
             } else {
                 $existingTenancyAgreement = $existingDocsByType['Tenancy Agreement / Letter Of Intent / Letter Of Offer'] ?? [];
                 $fields->push(FileField::create('TenancyAgreement', 'Tenancy Agreement / Letter Of Intent / Letter Of Offer')
-                    
+
                     ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
                 // Show existing file info
@@ -669,7 +1086,7 @@ namespace {
             ]));
 
             $fields->push(FileField::create('CEAAgreement', 'Upload CEA Agreement')
-                
+
                 ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
             if (!empty($existingCEAAgreement)) {
@@ -698,7 +1115,7 @@ namespace {
             ]));
 
             $fields->push(FileField::create('CobrokeAgreement', 'Upload Co-broke Agreement')
-                
+
                 ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
             if (!empty($existingCobrokeAgreement)) {
@@ -727,7 +1144,7 @@ namespace {
             ]));
 
             $fields->push(FileField::create('CommissionAgreement', 'Upload Commission Agreement')
-                
+
                 ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
             if (!empty($existingCommissionAgreement)) {
@@ -757,7 +1174,7 @@ namespace {
                 ]));
 
                 $fields->push(FileField::create('HDBApproval', 'Upload HDB Approval letter')
-                    
+
                     ->setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx'));
 
                 if (!empty($existingHDBApproval)) {
@@ -866,146 +1283,191 @@ namespace {
         }
 
         private function buildStep6Fields($submission)
-{
-    $fields = FieldList::create();
-    $fields->push(HiddenField::create('CurrentStep', '', 6));
-    $fields->push(HiddenField::create('SubmissionID', '', $submission->ID));
+        {
+            $fields = FieldList::create();
+            $fields->push(HiddenField::create('CurrentStep', '', 5));
+            $fields->push(HiddenField::create('SubmissionID', '', $submission->ID));
 
-    $reviewHTML = '<div class="review-content">';
+            $reviewHTML = '<div class="review-content">';
 
-    // Step 1 Review
-    $reviewHTML .= '<div class="review-section">';
-    $reviewHTML .= '<h3 class="review-title">Login Information</h3>';
-    $reviewHTML .= '<div class="review-item">';
-    $reviewHTML .= '<span class="review-label">Salesperson Name:</span>';
-    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->SalespersonName) . '</span>';
-    $reviewHTML .= '</div>';
-    $reviewHTML .= '<div class="review-item">';
-    $reviewHTML .= '<span class="review-label">RES Number:</span>';
-    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->RESNumber) . '</span>';
-    $reviewHTML .= '</div>';
-    $reviewHTML .= '</div>';
-
-    // Step 2 Review
-    $reviewHTML .= '<div class="review-section">';
-    $reviewHTML .= '<h3 class="review-title">Property Details</h3>';
-    $reviewHTML .= '<div class="review-item">';
-    $reviewHTML .= '<span class="review-label">Property Address:</span>';
-    $reviewHTML .= '<span class="review-value">' . nl2br(htmlspecialchars($submission->PropertyAddress)) . '</span>';
-    $reviewHTML .= '</div>';
-    $reviewHTML .= '<div class="review-item">';
-    $reviewHTML .= '<span class="review-label">Transaction Type:</span>';
-    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->TransactionType) . '</span>';
-    $reviewHTML .= '</div>';
-    $reviewHTML .= '<div class="review-item">';
-    $reviewHTML .= '<span class="review-label">Representing:</span>';
-    $reviewHTML .= '<span class="review-value">' . implode(', ', $submission->getRepresentingArray()) . '</span>';
-    $reviewHTML .= '</div>';
-    $reviewHTML .= '</div>';
-
-    // Detailed Client Information Records
-    $clientInfoRecords = $submission->ClientInfo();
-    $reviewHTML .= '<div class="review-section">';
-    $reviewHTML .= '<h3 class="review-title">Client Information Records</h3>';
-    
-    if ($clientInfoRecords->count() > 0) {
-        foreach ($clientInfoRecords as $clientInfo) {
-            $reviewHTML .= '<div class="review-subsection">';
-            $reviewHTML .= '<h4 class="review-subtitle">' . htmlspecialchars($clientInfo->PartyType) . '</h4>';
+            // Step 1 Review
+            $reviewHTML .= '<div class="review-section">';
+            $reviewHTML .= '<h3 class="review-title">Login Information</h3>';
             $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Client Type:</span>';
-            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($clientInfo->ClientType) . '</span>';
+            $reviewHTML .= '<span class="review-label">Salesperson Name:</span>';
+            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->SalespersonName) . '</span>';
             $reviewHTML .= '</div>';
             $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Acting Type:</span>';
-            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($clientInfo->ClientActingTypeSelection) . '</span>';
+            $reviewHTML .= '<span class="review-label">RES Number:</span>';
+            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->RESNumber) . '</span>';
             $reviewHTML .= '</div>';
-            
-            // Show ownership proof status
-            $ownershipProofStatus = $clientInfo->OwnershipProofID ? 'Uploaded' : 'Not Uploaded';
+            $reviewHTML .= '</div>';
+
+            // Step 2 Review
+            $reviewHTML .= '<div class="review-section">';
+            $reviewHTML .= '<h3 class="review-title">Property Details</h3>';
             $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Ownership Proof:</span>';
-            $reviewHTML .= '<span class="review-value">' . $ownershipProofStatus . '</span>';
+            $reviewHTML .= '<span class="review-label">Property Address:</span>';
+            $reviewHTML .= '<span class="review-value">' . nl2br(htmlspecialchars($submission->PropertyAddress)) . '</span>';
+            $reviewHTML .= '</div>';
+            $reviewHTML .= '<div class="review-item">';
+            $reviewHTML .= '<span class="review-label">Transaction Type:</span>';
+            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($submission->TransactionType) . '</span>';
+            $reviewHTML .= '</div>';
+            $reviewHTML .= '<div class="review-item">';
+            $reviewHTML .= '<span class="review-label">Representing:</span>';
+            $reviewHTML .= '<span class="review-value">' . implode(', ', $submission->getRepresentingArray()) . '</span>';
             $reviewHTML .= '</div>';
             $reviewHTML .= '</div>';
+
+            // Detailed Client Information Records
+            $clientInfoRecords = $submission->ClientInfo();
+            $reviewHTML .= '<div class="review-section">';
+            $reviewHTML .= '<h3 class="review-title">Client Information Records</h3>';
+
+            if ($clientInfoRecords->count() > 0) {
+                foreach ($clientInfoRecords as $clientInfo) {
+                    $reviewHTML .= '<div class="review-subsection">';
+                    $reviewHTML .= '<h4 class="review-subtitle">' . htmlspecialchars($clientInfo->PartyType) . '</h4>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">Client Type:</span>';
+                    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($clientInfo->ClientType) . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">Acting Type:</span>';
+                    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($clientInfo->ClientActingTypeSelection) . '</span>';
+                    $reviewHTML .= '</div>';
+
+                    $fileLink = function($fileID, $label) {
+                        if (!$fileID) return '<div class="review-item"><span class="review-label">' . $label . ':</span><span class="review-value">Not uploaded</span></div>';
+                        $f = \SilverStripe\Assets\File::get()->byID($fileID);
+                        if ($f && $f->exists()) {
+                            return '<div class="review-item"><span class="review-label">' . $label . ':</span><span class="review-value"><a href="' . $f->getURL() . '" target="_blank">' . htmlspecialchars($f->Name) . '</a></span></div>';
+                        }
+                        return '<div class="review-item"><span class="review-label">' . $label . ':</span><span class="review-value">Uploaded (unavailable)</span></div>';
+                    };
+                    $reviewHTML .= $fileLink($clientInfo->OwnershipProofID, 'Ownership Proof');
+                    $reviewHTML .= $fileLink($clientInfo->FormA1FileID, 'Form A1');
+                    $reviewHTML .= $fileLink($clientInfo->FormA2FileID, 'Form A2');
+                    $reviewHTML .= $fileLink($clientInfo->FormA3FileID, 'Form A3');
+                    $reviewHTML .= $fileLink($clientInfo->FormA4FileID, 'Form A4');
+                    $reviewHTML .= $fileLink($clientInfo->FormBFileID, 'Form B');
+                    $reviewHTML .= '</div>';
+                }
+            } else {
+                $reviewHTML .= '<div class="review-item">';
+                $reviewHTML .= '<span class="review-value">No client information records found.</span>';
+                $reviewHTML .= '</div>';
+            }
+            $reviewHTML .= '</div>';
+
+            // Detailed AML Records
+            $amlRecords = $submission->AMLRecords();
+            $reviewHTML .= '<div class="review-section">';
+            $reviewHTML .= '<h3 class="review-title">AML Records</h3>';
+
+            if ($amlRecords->count() > 0) {
+                foreach ($amlRecords as $amlRecord) {
+                    $reviewHTML .= '<div class="review-subsection">';
+                    $reviewHTML .= '<h4 class="review-subtitle">' . htmlspecialchars($amlRecord->PartyType) . '</h4>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">AML Search Completed:</span>';
+                    $reviewHTML .= '<span class="review-value">' . ($amlRecord->AMLCompleted ? 'Yes' : 'No') . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">Form B Section 2 Checked:</span>';
+                    $reviewHTML .= '<span class="review-value">' . ($amlRecord->FormBSection2Checked ? 'Yes' : 'No') . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">Other Party Represented:</span>';
+                    $reviewHTML .= '<span class="review-value">' . ($amlRecord->OtherPartyRepresented ? 'Yes' : 'No') . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">UCP Type:</span>';
+                    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($amlRecord->UCPType) . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">UCP Acting Type:</span>';
+                    $reviewHTML .= '<span class="review-value">' . htmlspecialchars($amlRecord->UCPActingType) . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">ECDD Required:</span>';
+                    $reviewHTML .= '<span class="review-value">' . ($amlRecord->ECDDRequired ? 'Yes' : 'No') . '</span>';
+                    $reviewHTML .= '</div>';
+                    $reviewHTML .= '<div class="review-item">';
+                    $reviewHTML .= '<span class="review-label">EA Approval Obtained:</span>';
+                    $reviewHTML .= '<span class="review-value">' . ($amlRecord->EAApprovalObtained ? 'Yes' : 'No') . '</span>';
+                    $reviewHTML .= '</div>';
+
+                    $amlFileLink = function($fileID, $label) {
+                        if (!$fileID) return '<div class="review-item"><span class="review-label">' . $label . ':</span><span class="review-value">Not uploaded</span></div>';
+                        $f = \SilverStripe\Assets\File::get()->byID($fileID);
+                        if ($f && $f->exists()) {
+                            return '<div class="review-item"><span class="review-label">' . $label . ':</span><span class="review-value"><a href="' . $f->getURL() . '" target="_blank">' . htmlspecialchars($f->Name) . '</a></span></div>';
+                        }
+                        return '<div class="review-item"><span class="review-label">' . $label . ':</span><span class="review-value">Uploaded (unavailable)</span></div>';
+                    };
+                    $reviewHTML .= $amlFileLink($amlRecord->AMLFileID, 'AML File');
+                    $reviewHTML .= $amlFileLink($amlRecord->FormQCIDID, 'Form QCI-D');
+
+                    foreach ($amlRecord->UCPForms() as $ucpForm) {
+                        if ($ucpForm->FormFile() && $ucpForm->FormFile()->exists()) {
+                            $reviewHTML .= '<div class="review-item"><span class="review-label">UCP Form:</span><span class="review-value"><a href="' . $ucpForm->FormFile()->getURL() . '" target="_blank">' . htmlspecialchars($ucpForm->FormFile()->Name) . '</a></span></div>';
+                        }
+                    }
+
+                    foreach ($amlRecord->ECDDForms() as $ecddForm) {
+                        if ($ecddForm->FormFile() && $ecddForm->FormFile()->exists()) {
+                            $label = $ecddForm->FormType === 'FormQCIB' ? 'Form QCI-B' : 'ECDD Form';
+                            $reviewHTML .= '<div class="review-item"><span class="review-label">' . $label . ':</span><span class="review-value"><a href="' . $ecddForm->FormFile()->getURL() . '" target="_blank">' . htmlspecialchars($ecddForm->FormFile()->Name) . '</a></span></div>';
+                        }
+                    }
+                }
+            } else {
+                $reviewHTML .= '<div class="review-item">';
+                $reviewHTML .= '<span class="review-value">No AML records found.</span>';
+                $reviewHTML .= '</div>';
+            }
+            $reviewHTML .= '</div>';
+
+            $reviewHTML .= '</div>';
+
+            // Step 5 Documents
+            $documents = $submission->Documents();
+            $reviewHTML .= '<div class="review-section">';
+            $reviewHTML .= '<h3 class="review-title">Transaction Documents</h3>';
+            if ($documents->count() > 0) {
+                foreach ($documents as $doc) {
+                    $reviewHTML .= '<div class="review-subsection">';
+                    $reviewHTML .= '<div class="review-item"><span class="review-label">Type:</span><span class="review-value">' . htmlspecialchars($doc->DocumentType) . '</span></div>';
+                    if ($doc->Description) {
+                        $reviewHTML .= '<div class="review-item"><span class="review-label">Description:</span><span class="review-value">' . htmlspecialchars($doc->Description) . '</span></div>';
+                    }
+                    if ($doc->DocumentFile() && $doc->DocumentFile()->exists()) {
+                        $reviewHTML .= '<div class="review-item"><span class="review-label">File:</span><span class="review-value"><a href="' . $doc->DocumentFile()->getURL() . '" target="_blank">' . htmlspecialchars($doc->DocumentFile()->Name) . '</a></span></div>';
+                    } else {
+                        $reviewHTML .= '<div class="review-item"><span class="review-label">File:</span><span class="review-value">Not uploaded</span></div>';
+                    }
+                    $reviewHTML .= '</div>';
+                }
+            } else {
+                $reviewHTML .= '<div class="review-item"><span class="review-value">No transaction documents added.</span></div>';
+            }
+            $reviewHTML .= '</div>';
+
+            $reviewHTML .= '<div class="alert alert-info mt-3">';
+            $reviewHTML .= '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
+            $reviewHTML .= '<circle cx="12" cy="12" r="10"/>';
+            $reviewHTML .= '<line x1="12" y1="16" x2="12" y2="12"/>';
+            $reviewHTML .= '<line x1="12" y1="8" x2="12.01" y2="8"/>';
+            $reviewHTML .= '</svg>';
+            $reviewHTML .= 'Please review all information carefully before submitting. Once submitted, you will receive a unique serial number for billing purposes.';
+            $reviewHTML .= '</div>';
+
+            $fields->push(LiteralField::create('ReviewContent', $reviewHTML));
+
+            return $fields;
         }
-    } else {
-        $reviewHTML .= '<div class="review-item">';
-        $reviewHTML .= '<span class="review-value">No client information records found.</span>';
-        $reviewHTML .= '</div>';
-    }
-    $reviewHTML .= '</div>';
-
-    // Detailed AML Records
-    $amlRecords = $submission->AMLRecords();
-    $reviewHTML .= '<div class="review-section">';
-    $reviewHTML .= '<h3 class="review-title">AML Records</h3>';
-    
-    if ($amlRecords->count() > 0) {
-        foreach ($amlRecords as $amlRecord) {
-            $reviewHTML .= '<div class="review-subsection">';
-            $reviewHTML .= '<h4 class="review-subtitle">' . htmlspecialchars($amlRecord->PartyType) . '</h4>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">AML Search Completed:</span>';
-            $reviewHTML .= '<span class="review-value">' . ($amlRecord->AMLCompleted ? 'Yes' : 'No') . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Form B Section 2 Checked:</span>';
-            $reviewHTML .= '<span class="review-value">' . ($amlRecord->FormBSection2Checked ? 'Yes' : 'No') . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Other Party Represented:</span>';
-            $reviewHTML .= '<span class="review-value">' . ($amlRecord->OtherPartyRepresented ? 'Yes' : 'No') . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">UCP Type:</span>';
-            $reviewHTML .= '<span class="review-value">' . htmlspecialchars($amlRecord->UCPType) . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">ECDD Required:</span>';
-            $reviewHTML .= '<span class="review-value">' . ($amlRecord->ECDDRequired ? 'Yes' : 'No') . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">EA Approval Obtained:</span>';
-            $reviewHTML .= '<span class="review-value">' . ($amlRecord->EAApprovalObtained ? 'Yes' : 'No') . '</span>';
-            $reviewHTML .= '</div>';
-            
-            // Show file upload statuses
-            $amlFileStatus = $amlRecord->AMLFileID ? 'Uploaded' : 'Not Uploaded';
-            $formQCIDStatus = $amlRecord->FormQCIDID ? 'Uploaded' : 'Not Uploaded';
-            
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">AML File:</span>';
-            $reviewHTML .= '<span class="review-value">' . $amlFileStatus . '</span>';
-            $reviewHTML .= '</div>';
-            $reviewHTML .= '<div class="review-item">';
-            $reviewHTML .= '<span class="review-label">Form QCI-D:</span>';
-            $reviewHTML .= '<span class="review-value">' . $formQCIDStatus . '</span>';
-            $reviewHTML .= '</div>';
-        
-        }
-    } else {
-        $reviewHTML .= '<div class="review-item">';
-        $reviewHTML .= '<span class="review-value">No AML records found.</span>';
-        $reviewHTML .= '</div>';
-    }
-    $reviewHTML .= '</div>';
-
-    $reviewHTML .= '</div>';
-
-    $reviewHTML .= '<div class="alert alert-info mt-3">';
-    $reviewHTML .= '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">';
-    $reviewHTML .= '<circle cx="12" cy="12" r="10"/>';
-    $reviewHTML .= '<line x1="12" y1="16" x2="12" y2="12"/>';
-    $reviewHTML .= '<line x1="12" y1="8" x2="12.01" y2="8"/>';
-    $reviewHTML .= '</svg>';
-    $reviewHTML .= 'Please review all information carefully before submitting. Once submitted, you will receive a unique serial number for billing purposes.';
-    $reviewHTML .= '</div>';
-
-    $fields->push(LiteralField::create('ReviewContent', $reviewHTML));
-
-    return $fields;
-}
 
         public function nextStep($data, $form)
         {
@@ -1052,7 +1514,7 @@ namespace {
 
             $this->getRequest()->getSession()->set('FormStep', $previousStep);
 
-            return $this->redirect($this->Link() . '?step=' . $previousStep. '#form-start');
+            return $this->redirect($this->Link() . '?step=' . $previousStep . '#form-start');
         }
 
         public function submitForm($data, $form)
@@ -1113,27 +1575,26 @@ namespace {
         {
             switch ($step) {
                 case 1:
-                    $submission->SalespersonName = $data['SalespersonName'];
-                    $submission->RESNumber = $data['RESNumber'];
+                    $submission->PropertyAddress = $data['PropertyAddress'];
+                    $submission->TransactionType = $data['TransactionType'];
+                    $representing = $data['Representing'] ?? null;
+                    if ($representing) {
+                        $submission->setRepresentingArray(
+                            is_array($representing) ? $representing : [$representing]
+                        );
+                    }
                     $submission->write();
                     break;
 
                 case 2:
-                    $submission->PropertyAddress = $data['PropertyAddress'];
-                    $submission->TransactionType = $data['TransactionType'];
-                    $submission->setRepresentingArray($data['Representing']);
-                    $submission->write();
-                    break;
-
-                case 3:
                     $this->saveStep3Data($data, $submission, $form);
                     break;
 
-                case 4:
+                case 3:
                     $this->saveStep4Data($data, $submission, $form);
                     break;
 
-                case 5:
+                case 4:
                     $this->saveStep5Data($data, $submission, $form);
                     break;
             }
@@ -1172,32 +1633,34 @@ namespace {
 
                 error_log("ClientInfo ID: {$clientInfo->ID}");
 
-                // Handle file upload with FileField (same as billing form)
-                $fieldName = "OwnershipProof_{$party}";
-                if (isset($_FILES[$fieldName]) && !empty($_FILES[$fieldName]['tmp_name'])) {
-                    $upload = Upload::create();
+                // Handle all file uploads for this party — stored under the submission's own folder
+                $submissionFolder = 'submissions/' . $submission->SerialNumber . '/client-info';
+                $fileUploads = [
+                    "OwnershipProof_{$party}" => ['field' => 'OwnershipProofID', 'folder' => $submissionFolder],
+                    "FormA1File_{$party}"     => ['field' => 'FormA1FileID',     'folder' => $submissionFolder],
+                    "FormA2File_{$party}"     => ['field' => 'FormA2FileID',     'folder' => $submissionFolder],
+                    "FormA3File_{$party}"     => ['field' => 'FormA3FileID',     'folder' => $submissionFolder],
+                    "FormA4File_{$party}"     => ['field' => 'FormA4FileID',     'folder' => $submissionFolder],
+                    "FormBFile_{$party}"      => ['field' => 'FormBFileID',      'folder' => $submissionFolder],
+                ];
 
-                    try {
-                        $file = File::create();
-                        $upload->loadIntoFile($_FILES[$fieldName], $file, 'ownership-proofs/');
-
-                        if ($file && $file->exists()) {
-                            $file->publishSingle();
-                            $clientInfo->OwnershipProofID = $file->ID;
-                            $clientInfo->write();
-                            error_log("✓ Ownership proof uploaded! File ID: {$file->ID}");
-                        } else {
-                            error_log("✗ File upload failed for OwnershipProof_{$party}");
+                foreach ($fileUploads as $fieldName => $config) {
+                    if (isset($_FILES[$fieldName]) && !empty($_FILES[$fieldName]['tmp_name'])) {
+                        try {
+                            $upload = Upload::create();
+                            $file = File::create();
+                            $upload->loadIntoFile($_FILES[$fieldName], $file, $config['folder'] . '/');
+                            if ($file && $file->exists()) {
+                                $file->publishSingle();
+                                $clientInfo->{$config['field']} = $file->ID;
+                                $clientInfo->write();
+                            }
+                        } catch (\Exception $e) {
+                            error_log("Error uploading {$fieldName}: " . $e->getMessage());
                         }
-                    } catch (\Exception $e) {
-                        error_log("✗ Error uploading OwnershipProof_{$party}: " . $e->getMessage());
                     }
-                } else {
-                    error_log("No file uploaded for OwnershipProof_{$party}");
                 }
             }
-
-            error_log("=========================");
         }
 
         private function saveStep4Data($data, $submission, $form = null)
@@ -1217,22 +1680,26 @@ namespace {
                 $amlRecord->FormBSection2Checked = isset($data["FormBSection2_{$index}"]) ? (bool)$data["FormBSection2_{$index}"] : false;
                 $amlRecord->OtherPartyRepresented = isset($data["OtherPartyRepresented_{$index}"]) ? (bool)$data["OtherPartyRepresented_{$index}"] : false;
                 $amlRecord->UCPType = $data["UCPType_{$index}"] ?? null;
+                $amlRecord->UCPActingType = $data["UCPActingType_{$index}"] ?? null;
                 $amlRecord->ECDDRequired = isset($data["ECDDRequired_{$index}"]) ? (bool)$data["ECDDRequired_{$index}"] : false;
                 $amlRecord->EAApprovalObtained = isset($data["EAApproval_{$index}"]) ? (bool)$data["EAApproval_{$index}"] : false;
                 $amlRecord->write();
 
                 error_log("=== Step 4 File Upload Debug ===");
 
+                // All AML files stored under the submission's own folder
+                $amlFolder = 'submissions/' . $submission->SerialNumber . '/aml';
+
                 // Handle single file uploads using FileField method
-                $this->handleFileFieldUpload("AMLFile_{$index}", $amlRecord, 'AMLFileID', 'aml-files');
-                $this->handleFileFieldUpload("FormQCID_{$index}", $amlRecord, 'FormQCIDID', 'form-qcid');
+                $this->handleFileFieldUpload("AMLFile_{$index}", $amlRecord, 'AMLFileID', $amlFolder);
+                $this->handleFileFieldUpload("FormQCID_{$index}", $amlRecord, 'FormQCIDID', $amlFolder);
 
                 // Handle multiple file uploads
-                $this->handleMultipleFileFieldUpload("UCPForms_{$index}", $amlRecord, 'UCPForm', 'ucp-forms');
+                $this->handleMultipleFileFieldUpload("UCPForms_{$index}", $amlRecord, 'UCPForm', $amlFolder);
 
                 // Handle ECDD Form and Form QCI-B as separate multiple file uploads
-                $this->handleECDFileUpload("ECDDForm_{$index}", $amlRecord, 'ECDDForm', 'ecdd-forms');
-                $this->handleECDFileUpload("FormQCIB_{$index}", $amlRecord, 'FormQCIB', 'form-qcib');
+                $this->handleECDFileUpload("ECDDForm_{$index}", $amlRecord, 'ECDDForm', $amlFolder);
+                $this->handleECDFileUpload("FormQCIB_{$index}", $amlRecord, 'FormQCIB', $amlFolder);
 
                 error_log("=========================");
             }
@@ -1441,7 +1908,7 @@ namespace {
 
             try {
                 $file = File::create();
-                $upload->loadIntoFile($fileData, $file, 'transaction-documents/');
+                $upload->loadIntoFile($fileData, $file, 'submissions/' . $submission->SerialNumber . '/documents/');
 
                 if ($file && $file->exists()) {
                     $file->publishSingle();
@@ -1474,13 +1941,38 @@ namespace {
                 'wendy.low@quinvest-chambers.com.sg'
             ];
 
-            $subject = "New Form Submission - {$submission->SalespersonName}";
-            $body = "A new form has been submitted by {$submission->SalespersonName}.\n\n";
-            $body .= "Serial Number: {$submission->SerialNumber}\n";
-            $body .= "RES Number: {$submission->RESNumber}\n";
-            $body .= "Transaction Type: {$submission->TransactionType}\n";
-            $body .= "Property Address: {$submission->PropertyAddress}\n\n";
-            $body .= "Please review the submission in the admin panel.";
+            $subject = "{$submission->SalespersonName} has completed the forms submission";
+            $body = "<p>A new form has been submitted by <strong>{$submission->SalespersonName}</strong>.</p>
+                    <p><strong>Serial Number:</strong> {$submission->SerialNumber}</p>
+                    <p><strong>RES Number:</strong> {$submission->RESNumber}</p>
+                    <p><strong>Transaction Type:</strong> {$submission->TransactionType}</p>
+                    <p><strong>Property Address:</strong> {$submission->PropertyAddress}</p>
+                    <p><strong>Submitted Date:</strong> {$submission->SubmittedDate}</p>
+                    <p><strong>Status:</strong> {$submission->Status}</p>
+                    
+                    <h3>Client Information:</h3>";
+
+            // Add client information
+            $clientInfoRecords = $submission->ClientInfo();
+            if ($clientInfoRecords->count() > 0) {
+                foreach ($clientInfoRecords as $clientInfo) {
+                    $body .= "<p><strong>{$clientInfo->PartyType}:</strong> {$clientInfo->ClientType} - {$clientInfo->ClientActingTypeSelection}</p>";
+                }
+            }
+
+            // Add AML information
+            $amlRecords = $submission->AMLRecords();
+            if ($amlRecords->count() > 0) {
+                $body .= "<h3>AML Records:</h3>";
+                foreach ($amlRecords as $amlRecord) {
+                    $body .= "<p><strong>{$amlRecord->PartyType}:</strong> AML Completed: " . ($amlRecord->AMLCompleted ? 'Yes' : 'No') .
+                        ", ECDD Required: " . ($amlRecord->ECDDRequired ? 'Yes' : 'No') .
+                        ", EA Approval: " . ($amlRecord->EAApprovalObtained ? 'Yes' : 'No') . "</p>";
+                }
+            }
+
+            $body .= "<p>Please review the submission in the <a href=\"https://billing.quinvest-chambers.com.sg/admin/form-submissions\">admin panel</a>.</p>
+                    <p>Thank you!</p>";
 
             $email = Email::create()
                 ->setTo($to)
@@ -1490,8 +1982,77 @@ namespace {
             try {
                 $email->send();
             } catch (\Exception $e) {
-                // Log error but don't stop submission
                 error_log("Failed to send notification email: " . $e->getMessage());
+            }
+        }
+
+        private function sendBillingNotificationEmail($billingSubmission)
+        {
+            $to = [
+                'felicia.teo@quinvest-chambers.com.sg',
+                'Ian.loh@quinvest-chambers.com.sg',
+                'wendy.low@quinvest-chambers.com.sg'
+            ];
+
+            $originalSubmission = $billingSubmission->FormSubmission();
+            $uploadedBy = Member::get()->byID($billingSubmission->UploadedByID);
+
+            $uploaderName = $uploadedBy ? ($uploadedBy->FirstName . ' ' . $uploadedBy->Surname) : $originalSubmission->SalespersonName;
+            $subject = "{$uploaderName} has submitted the billing form";
+            $body = "<p>A new billing form has been submitted for Serial Number: <strong>{$billingSubmission->SerialNumber}</strong></p>
+                    <p><strong>Submission Details:</strong></p>
+                    <p><strong>Salesperson:</strong> {$originalSubmission->SalespersonName}</p>
+                    <p><strong>RES Number:</strong> {$originalSubmission->RESNumber}</p>
+                    <p><strong>Transaction Type:</strong> {$originalSubmission->TransactionType}</p>
+                    <p><strong>Property Address:</strong> {$originalSubmission->PropertyAddress}</p>
+                    <p><strong>Upload Date:</strong> " . date('Y-m-d H:i:s') . "</p>
+                    
+                    <p>Please review the billing submission in the <a href=\"https://billing.quinvest-chambers.com.sg/admin/billing-forms\">admin panel</a>.</p>
+                    <p>Thank you!</p>";
+
+            $email = Email::create()
+                ->setTo($to)
+                ->setSubject($subject)
+                ->setBody($body);
+
+            try {
+                $email->send();
+            } catch (\Exception $e) {
+                error_log("Failed to send billing notification email: " . $e->getMessage());
+            }
+        }
+
+        private function sendBillingUpdateNotificationEmail($billingSubmission)
+        {
+            $to = [
+                'felicia.teo@quinvest-chambers.com.sg',
+                'Ian.loh@quinvest-chambers.com.sg',
+                'wendy.low@quinvest-chambers.com.sg'
+            ];
+
+            $originalSubmission = $billingSubmission->FormSubmission();
+
+            $subject = "Billing Form Submission Updated - {$originalSubmission->SerialNumber}";
+            $body = "<p>A billing form submission has been updated for Serial Number: <strong>{$billingSubmission->SerialNumber}</strong></p>
+                    <p><strong>Submission Details:</strong></p>
+                    <p><strong>Salesperson:</strong> {$originalSubmission->SalespersonName}</p>
+                    <p><strong>RES Number:</strong> {$originalSubmission->RESNumber}</p>
+                    <p><strong>Transaction Type:</strong> {$originalSubmission->TransactionType}</p>
+                    <p><strong>Property Address:</strong> {$originalSubmission->PropertyAddress}</p>
+                    <p><strong>Updated Date:</strong> " . date('Y-m-d H:i:s') . "</p>
+
+                    <p>Please review the updated billing submission in the <a href=\"https://billing.quinvest-chambers.com.sg/admin/billing-forms\">admin panel</a>.</p>
+                    <p>Thank you!</p>";
+
+            $email = Email::create()
+                ->setTo($to)
+                ->setSubject($subject)
+                ->setBody($body);
+
+            try {
+                $email->send();
+            } catch (\Exception $e) {
+                error_log("Failed to send billing update notification email: " . $e->getMessage());
             }
         }
 
@@ -1513,7 +2074,7 @@ namespace {
         public function getCurrentFormStepPercentage()
         {
             $currentStep = $this->getCurrentFormStep();
-            return ($currentStep / 6) * 100;
+            return ($currentStep / 5) * 100;
         }
 
         public function getStepClass($step)
@@ -1539,12 +2100,11 @@ namespace {
             $step = $this->getCurrentFormStep();
 
             $titles = [
-                1 => 'Step 1: Login Information',
-                2 => 'Step 2: Property Details',
-                3 => 'Step 3: Client Information',
-                4 => 'Step 4: AML Search & Forms',
-                5 => 'Step 5: Document Upload',
-                6 => 'Step 6: Review & Submit'
+                1 => 'Step 1: Property Details',
+                2 => 'Step 2: Client Information',
+                3 => 'Step 3: AML Search & Forms',
+                4 => 'Step 4: Document Upload',
+                5 => 'Step 5: Review & Submit'
             ];
 
             return $titles[$step] ?? 'Form Submission';
@@ -1553,43 +2113,7 @@ namespace {
         public function getCurrentStepPercentage()
         {
             $currentStep = $this->getRequest()->getSession()->get('FormStep') ?: 1;
-            return ($currentStep / 6) * 100;
-        }
-
-        public function getStep1Class()
-        {
-            $currentStep = $this->getRequest()->getSession()->get('FormStep') ?: 1;
-            return $currentStep == 1 ? 'active' : ($currentStep > 1 ? 'completed' : '');
-        }
-
-        public function getStep2Class()
-        {
-            $currentStep = $this->getRequest()->getSession()->get('FormStep') ?: 1;
-            return $currentStep == 2 ? 'active' : ($currentStep > 2 ? 'completed' : '');
-        }
-
-        public function getStep3Class()
-        {
-            $currentStep = $this->getRequest()->getSession()->get('FormStep') ?: 1;
-            return $currentStep == 3 ? 'active' : ($currentStep > 3 ? 'completed' : '');
-        }
-
-        public function getStep4Class()
-        {
-            $currentStep = $this->getRequest()->getSession()->get('FormStep') ?: 1;
-            return $currentStep == 4 ? 'active' : ($currentStep > 4 ? 'completed' : '');
-        }
-
-        public function getStep5Class()
-        {
-            $currentStep = $this->getRequest()->getSession()->get('FormStep') ?: 1;
-            return $currentStep == 5 ? 'active' : ($currentStep > 5 ? 'completed' : '');
-        }
-
-        public function getStep6Class()
-        {
-            $currentStep = $this->getRequest()->getSession()->get('FormStep') ?: 1;
-            return $currentStep == 6 ? 'active' : '';
+            return ($currentStep / 5) * 100;
         }
 
         public function RequestVar($key)
@@ -1597,5 +2121,128 @@ namespace {
             return $this->getRequest()->getVar($key);
         }
 
+        public function dashboard()
+        {
+            // Check if user is logged in
+            if (!$this->IsLoggedIn()) {
+                return $this->redirect('/Security/login?BackURL=/dashboard');
+            }
+
+            return [];
+        }
+
+        // Add view submission method
+        public function viewSubmission()
+        {
+            $member = Security::getCurrentUser();
+            if (!$member) {
+                return $this->redirect('/Security/login?BackURL=/dashboard');
+            }
+
+            $request = $this->getRequest();
+            $id = $request->param('ID');
+
+            if ($id) {
+                $submission = FormSubmission::get()->byID($id);
+                if ($submission && $submission->RESNumber === $member->RESNumber) {
+                    // Redirect to the new submission detail page
+                    return $this->redirect("/submission-details/{$id}");
+                }
+            }
+
+            return $this->redirect('/dashboard');
+        }
+
+        // Add download file method
+        public function downloadFile()
+        {
+            $member = Security::getCurrentUser();
+            if (!$member) {
+                return $this->redirect('/Security/login?BackURL=/dashboard');
+            }
+
+            $request = $this->getRequest();
+            $id = $request->param('ID');
+
+            if ($id) {
+                $file = File::get()->byID($id);
+                if ($file && $file->exists()) {
+                    // Check if user has permission to download this file
+                    // You might want to add additional permission checks here
+                    return HTTPRequest::send_file(
+                        $file->getString(),
+                        $file->getName(),
+                        $file->getMimeType()
+                    );
+                }
+            }
+
+            return $this->httpError(404, 'File not found');
+        }
+
+        // Add method to get current user submissions
+        public function getUserSubmissions()
+        {
+            $member = Security::getCurrentUser();
+            if (!$member) {
+                return ArrayList::create();
+            }
+
+            return FormSubmission::get()
+                ->filter([
+                    'RESNumber' => $member->RESNumber,
+                    'Status:not' => 'Draft'
+                ])
+                ->sort('Created DESC');
+        }
+
+        // Add method to get user's billing submissions
+        public function getUserBillingSubmissions()
+        {
+            $member = Security::getCurrentUser();
+            if (!$member) {
+                return ArrayList::create();
+            }
+
+            return BillingFormSubmission::get()
+                ->filter([
+                    'UploadedByID' => $member->ID
+                ])
+                ->sort('Created DESC');
+        }
+
+        public function getSubmissionDetail(HTTPRequest $request)
+        {
+            $member = Security::getCurrentUser();
+            if (!$member) {
+                return $this->jsonResponse(['success' => false, 'message' => 'Not authenticated']);
+            }
+
+            $id = $request->param('ID');
+            if (!$id) {
+                return $this->jsonResponse(['success' => false, 'message' => 'No submission ID provided']);
+            }
+
+            $submission = FormSubmission::get()->byID($id);
+            if (!$submission || $submission->RESNumber !== $member->RESNumber) {
+                return $this->jsonResponse(['success' => false, 'message' => 'Submission not found or access denied']);
+            }
+
+            // Render submission detail HTML
+            $html = $this->renderSubmissionDetailHTML($submission);
+
+            return $this->jsonResponse([
+                'success' => true,
+                'html' => $html
+            ]);
+        }
+
+        // Helper method for JSON responses
+        private function jsonResponse($data, $statusCode = 200)
+        {
+            $response = HTTPResponse::create(json_encode($data), $statusCode);
+            $response->addHeader('Content-Type', 'application/json');
+            return $response;
+        }
     }
 }
